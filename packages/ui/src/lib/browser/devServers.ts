@@ -80,6 +80,8 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
 type DevServerCandidate = {
   readonly url: string;
   readonly port: number;
+  /** The owning process's command name, or '' when discovery did not supply one. */
+  readonly command: string;
   /** Present when a server announced this address itself. */
   readonly announced: boolean;
 };
@@ -122,7 +124,7 @@ export const mergeDevServerCandidates = ({
 
   if (!discovered) {
     return [...announcedByPort.entries()]
-      .map(([port, url]) => ({ url, port, announced: true }))
+      .map(([port, url]) => ({ url, port, command: '', announced: true }))
       .sort((left, right) => left.port - right.port);
   }
 
@@ -132,6 +134,7 @@ export const mergeDevServerCandidates = ({
       return {
         url: announcedUrl ?? server.url,
         port: server.port,
+        command: server.command,
         announced: announcedUrl !== undefined,
       };
     })
