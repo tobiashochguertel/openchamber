@@ -104,6 +104,26 @@ export type DevServerCandidate = {
   readonly forward?: DevServerForwardInfo;
 };
 
+/**
+ * What a row says under the address: the container that published the port,
+ * the host a forward points at, the owning process, or the base path. A bare
+ * `ssh` or `node` says less than any of these.
+ */
+export const devServerContextLabel = (candidate: DevServerCandidate): string => {
+  if (candidate.docker) return candidate.docker.name;
+  if (candidate.forward) return `${candidate.forward.host}:${candidate.forward.port}`;
+  return candidate.command || pathLabel(candidate.url);
+};
+
+const pathLabel = (url: string): string => {
+  try {
+    const path = new URL(url).pathname;
+    return path === '/' ? '' : path;
+  } catch {
+    return '';
+  }
+};
+
 const portOf = (url: string): number | null => {
   try {
     const parsed = new URL(url);
