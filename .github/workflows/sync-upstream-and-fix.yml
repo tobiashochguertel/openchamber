@@ -51,6 +51,8 @@ env:
     packages/ui/src/lib/i18n/messages/zh-CN.ts
     packages/ui/src/lib/i18n/messages/zh-TW.ts
 
+    packages/ui/src/lib/browser/hiddenDevServers.ts
+    packages/web/server/lib/dev-servers/routes.js
 jobs:
   # ── Stable: sync main from latest upstream release tag ────────────────────
   sync-main:

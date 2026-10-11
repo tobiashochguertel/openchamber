@@ -18,7 +18,7 @@ using the **revert-then-repatch** strategy (same model as the WaveTerm fork; see
 
 | #   | Patch                              | Content                                                              | Status                                                        |
 | --- | ---------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 001 | `001-dev-server-labels.patch`      | Name + process label for dev servers in the browser panel            | Upstream discussion [openchamber#4748](https://github.com/openchamber/openchamber/discussions/4748); PR pending maintainer go-ahead |
+| 001 | `001-dev-server-labels.patch`      | Dev-server list: process/docker/forward context, port names, filter rules, list settings dialog | Upstream discussion [openchamber#4748](https://github.com/openchamber/openchamber/discussions/4748); PR pending maintainer go-ahead |
 
 Files only added by a feature (no upstream counterpart) are committed to
 `dev.patch` directly — only files that exist upstream go into `.patch` files.
@@ -28,6 +28,11 @@ For 001 the new files are:
 - `packages/ui/src/lib/browser/devServerLabels.ts`
 - `packages/ui/src/lib/browser/devServerLabels.test.ts`
 - `packages/ui/src/components/browser/DevServerLabelDialog.tsx`
+- `packages/ui/src/lib/browser/devServerFilters.ts`
+- `packages/ui/src/lib/browser/devServerFilters.test.ts`
+- `packages/ui/src/components/browser/DevServerSettingsDialog.tsx`
+- `packages/web/server/lib/dev-servers/enrich.js`
+- `packages/web/server/lib/dev-servers/enrich.test.js`
 
 ## How the sync works
 
