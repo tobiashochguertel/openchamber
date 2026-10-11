@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Icon } from '@/components/icon/Icon';
 import { OpenChamberLogo } from '@/components/ui/OpenChamberLogo';
 import { useI18n } from '@/lib/i18n';
-import { fetchDevServers, mergeDevServerCandidates, type DevServerCandidate, type DevServerDiscovery } from '@/lib/browser/devServers';
+import { devServerContextLabel, fetchDevServers, mergeDevServerCandidates, type DevServerDiscovery } from '@/lib/browser/devServers';
 import { clearAnnouncedDevServers, useAnnouncedDevServers } from '@/lib/browser/announcedServers';
 import { browserUrlLabel } from '@/lib/browser/url';
 import { isRemoteWebLoopbackUrl, isSpaceUnreachableFromHere } from '@/lib/browser/devTunnel';
@@ -26,27 +26,6 @@ import { DevServerSettingsDialog } from './DevServerSettingsDialog';
  * stated plainly instead of being rendered as "nothing is running" — the two
  * mean very different things to someone whose dev server is definitely up.
  */
-
-/** The base path a server is served under, or '' when it sits at the root. */
-const pathLabel = (url: string): string => {
-  try {
-    const path = new URL(url).pathname;
-    return path === '/' ? '' : path;
-  } catch {
-    return '';
-  }
-};
-
-/**
- * What the row says under the address: the container that published the port,
- * the host a forward points at, the owning process, or the base path. A bare
- * `ssh` or `node` says less than any of these.
- */
-const serverContextLabel = (candidate: DevServerCandidate): string => {
-  if (candidate.docker) return candidate.docker.name;
-  if (candidate.forward) return `${candidate.forward.host}:${candidate.forward.port}`;
-  return candidate.command || pathLabel(candidate.url);
-};
 
 /** Re-checked while the panel is open: a project's servers appear seconds apart. */
 const REFRESH_INTERVAL_MS = 2_000;
@@ -207,7 +186,7 @@ export const BrowserEmptyState: React.FC<{
                     </span>
                   ) : (
                     <span className="ms-auto truncate typography-micro text-muted-foreground">
-                      {serverContextLabel(candidate)}
+                      {devServerContextLabel(candidate)}
                     </span>
                   )}
                 </Button>
