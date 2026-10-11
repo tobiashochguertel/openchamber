@@ -7,10 +7,26 @@
  */
 import { runtimeFetch } from '@/lib/runtime-fetch';
 
+export type DevServerDockerInfo = {
+  readonly id: string;
+  readonly name: string;
+  readonly image: string;
+  readonly labels: Readonly<Record<string, string>>;
+};
+
+export type DevServerForwardInfo = {
+  readonly host: string;
+  readonly port: number;
+};
+
 export type DiscoveredDevServer = {
   readonly port: number;
   readonly url: string;
   readonly command: string;
+  /** Container that published this port, when the owner is a Docker forward. */
+  readonly docker?: DevServerDockerInfo;
+  /** -L target this port forwards to, when the owner is an ssh process. */
+  readonly forward?: DevServerForwardInfo;
 };
 
 export type DevServerDiscovery =
@@ -77,13 +93,15 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
   }
 };
 
-type DevServerCandidate = {
+export type DevServerCandidate = {
   readonly url: string;
   readonly port: number;
   /** The owning process's command name, or '' when discovery did not supply one. */
   readonly command: string;
   /** Present when a server announced this address itself. */
   readonly announced: boolean;
+  readonly docker?: DevServerDockerInfo;
+  readonly forward?: DevServerForwardInfo;
 };
 
 const portOf = (url: string): number | null => {
@@ -136,6 +154,8 @@ export const mergeDevServerCandidates = ({
         port: server.port,
         command: server.command,
         announced: announcedUrl !== undefined,
+        docker: server.docker,
+        forward: server.forward,
       };
     })
     .sort((left, right) => {

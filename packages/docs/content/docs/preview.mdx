@@ -11,7 +11,7 @@ When you start a dev server, OpenChamber can open it right inside the app instea
 
 Open the browser panel from the globe button in the app header. If a dev server is already running, it is listed there and one click opens it — OpenChamber finds it by looking at what is actually listening on your machine, so it works no matter how you started it.
 
-The list shows the process command next to each address, and busy machines can carry a lot of listeners that are not your dev server. Hover a row to give the port a name — it stays on that port until you reset it — or to hide ports you never want to see.
+The list shows the process command next to each address, and busy machines can carry a lot of listeners that are not your dev server. A port published by Docker shows its container name, and an ssh forward shows its target. Hover a row to give the port a name, which stays on that port until you reset it, or to hide ports you never want to see. The gear button next to the heading opens the filter rules, the hidden ports, and the saved names. Rules match on fields such as port, command, docker.name, docker.image, and forward.host, one rule per line; a leading ! hides what it matches.
 
 A dev server also opens automatically when:
 
