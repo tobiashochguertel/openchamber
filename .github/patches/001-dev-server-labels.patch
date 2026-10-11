@@ -1,0 +1,419 @@
+diff --git a/packages/docs/content/docs/preview.mdx b/packages/docs/content/docs/preview.mdx
+index d8b1f0603..f0b628bed 100644
+--- a/packages/docs/content/docs/preview.mdx
++++ b/packages/docs/content/docs/preview.mdx
+@@ -11,6 +11,8 @@ When you start a dev server, OpenChamber can open it right inside the app instea
+ 
+ Open the browser panel from the globe button in the app header. If a dev server is already running, it is listed there and one click opens it — OpenChamber finds it by looking at what is actually listening on your machine, so it works no matter how you started it.
+ 
++The list shows the process command next to each address, and busy machines can carry a lot of listeners that are not your dev server. Hover a row to give the port a name — it stays on that port until you reset it — or to hide ports you never want to see.
++
+ A dev server also opens automatically when:
+ 
+ - you press **Open preview** on a local address in the terminal
+diff --git a/packages/ui/src/components/browser/BrowserEmptyState.tsx b/packages/ui/src/components/browser/BrowserEmptyState.tsx
+index 62223bc06..ad9644bfb 100644
+--- a/packages/ui/src/components/browser/BrowserEmptyState.tsx
++++ b/packages/ui/src/components/browser/BrowserEmptyState.tsx
+@@ -13,6 +13,8 @@ import { isSpaceDirectory } from '@/lib/spaces/space-route';
+ import { useSpaceMarkLabel } from '@/lib/spaces/space-mark';
+ import { useSpaceDirectoryStopped } from '@/lib/spaces/spaces-store';
+ import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts } from '@/lib/browser/hiddenDevServers';
++import { setDevServerLabel, useDevServerLabels } from '@/lib/browser/devServerLabels';
++import { DevServerLabelDialog } from './DevServerLabelDialog';
+ 
+ /**
+  * What the panel shows before anything is loaded.
+@@ -94,6 +96,8 @@ export const BrowserEmptyState: React.FC<{
+   // A server that just announced itself is shown even on a hidden port: the
+   // user started it, so it is no longer noise.
+   const hiddenPorts = useHiddenDevServerPorts();
++  const labels = useDevServerLabels();
++  const [nameTarget, setNameTarget] = React.useState<number | null>(null);
+   const visibleCandidates = React.useMemo(
+     () => candidates.filter((candidate) => candidate.announced || !hiddenPorts.includes(candidate.port)),
+     [candidates, hiddenPorts],
+@@ -124,7 +128,9 @@ export const BrowserEmptyState: React.FC<{
+             </span>
+           ) : null}
+           <div className="flex min-h-0 flex-col gap-1 overflow-y-auto pe-0.5">
+-            {visibleCandidates.map((candidate) => (
++            {visibleCandidates.map((candidate) => {
++              const customLabel = labels[String(candidate.port)];
++              return (
+               <div key={candidate.port} className="group/server flex shrink-0 items-center gap-1">
+                 <Button
+                   type="button"
+@@ -134,6 +140,7 @@ export const BrowserEmptyState: React.FC<{
+                   // tooltips of the two marks that say why the row does not open.
+                   className={cn('min-w-0 flex-1 justify-start gap-2', remoteOnly && 'cursor-default opacity-60')}
+                   aria-disabled={remoteOnly || undefined}
++                  title={customLabel ? candidate.url : undefined}
+                   onClick={() => {
+                     if (remoteOnly) return;
+                     // The offer is answered; leaving it up would keep suggesting
+@@ -154,7 +161,7 @@ export const BrowserEmptyState: React.FC<{
+                   ) : (
+                     <Icon name="global" className="size-3.5 shrink-0" aria-hidden="true" />
+                   )}
+-                  <span className="truncate">{browserUrlLabel(candidate.url) || candidate.url}</span>
++                  <span className="truncate">{customLabel ?? (browserUrlLabel(candidate.url) || candidate.url)}</span>
+                   {spaceUnreachable ? (
+                     <span
+                       className="ms-auto shrink-0 text-muted-foreground"
+@@ -166,10 +173,21 @@ export const BrowserEmptyState: React.FC<{
+                     </span>
+                   ) : (
+                     <span className="ms-auto truncate typography-micro text-muted-foreground">
+-                      {pathLabel(candidate.url)}
++                      {candidate.command || pathLabel(candidate.url)}
+                     </span>
+                   )}
+                 </Button>
++                <Button
++                  type="button"
++                  variant="ghost"
++                  size="icon"
++                  className="size-7 shrink-0 text-muted-foreground opacity-0 group-hover/server:opacity-100 focus-visible:opacity-100"
++                  onClick={() => setNameTarget(candidate.port)}
++                  aria-label={t('contextPanel.browser.devServers.name', { port: candidate.port })}
++                  title={t('contextPanel.browser.devServers.name', { port: candidate.port })}
++                >
++                  <Icon name="pencil" className="size-3.5" aria-hidden="true" />
++                </Button>
+                 {candidate.announced ? null : (
+                   <Button
+                     type="button"
+@@ -184,7 +202,8 @@ export const BrowserEmptyState: React.FC<{
+                   </Button>
+                 )}
+               </div>
+-            ))}
++            );
++            })}
+           </div>
+           {hiddenCount > 0 ? (
+             <Button
+@@ -207,6 +226,13 @@ export const BrowserEmptyState: React.FC<{
+           {t('contextPanel.browser.devServers.unavailable')}
+         </span>
+       ) : null}
++
++      <DevServerLabelDialog
++        port={nameTarget}
++        currentLabel={nameTarget !== null ? (labels[String(nameTarget)] ?? '') : ''}
++        onRename={setDevServerLabel}
++        onClose={() => setNameTarget(null)}
++      />
+     </div>
+   );
+ };
+diff --git a/packages/ui/src/lib/browser/devServers.test.ts b/packages/ui/src/lib/browser/devServers.test.ts
+index 711eeb0ba..08f2fb534 100644
+--- a/packages/ui/src/lib/browser/devServers.test.ts
++++ b/packages/ui/src/lib/browser/devServers.test.ts
+@@ -58,6 +58,19 @@ describe('dev server candidates', () => {
+     expect(merged.map((entry) => entry.port)).toEqual([3000, 4323]);
+   });
+ 
++  test('carries the owning process command through for labelling', () => {
++    const merged = mergeDevServerCandidates({ announced: [], discovered });
++    expect(merged.find((entry) => entry.port === 3000)?.command).toBe('node');
++  });
++
++  test('has no command for a server known only from its announcement', () => {
++    const merged = mergeDevServerCandidates({
++      announced: ['http://localhost:4323'],
++      discovered: null,
++    });
++    expect(merged[0]?.command).toBe('');
++  });
++
+   test('is empty when neither source has anything', () => {
+     expect(mergeDevServerCandidates({ announced: [], discovered: null })).toEqual([]);
+     expect(mergeDevServerCandidates({ announced: [], discovered: [] })).toEqual([]);
+diff --git a/packages/ui/src/lib/browser/devServers.ts b/packages/ui/src/lib/browser/devServers.ts
+index 949c8b4f2..07658d7ba 100644
+--- a/packages/ui/src/lib/browser/devServers.ts
++++ b/packages/ui/src/lib/browser/devServers.ts
+@@ -80,6 +80,8 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
+ type DevServerCandidate = {
+   readonly url: string;
+   readonly port: number;
++  /** The owning process's command name, or '' when discovery did not supply one. */
++  readonly command: string;
+   /** Present when a server announced this address itself. */
+   readonly announced: boolean;
+ };
+@@ -122,7 +124,7 @@ export const mergeDevServerCandidates = ({
+ 
+   if (!discovered) {
+     return [...announcedByPort.entries()]
+-      .map(([port, url]) => ({ url, port, announced: true }))
++      .map(([port, url]) => ({ url, port, command: '', announced: true }))
+       .sort((left, right) => left.port - right.port);
+   }
+ 
+@@ -132,6 +134,7 @@ export const mergeDevServerCandidates = ({
+       return {
+         url: announcedUrl ?? server.url,
+         port: server.port,
++        command: server.command,
+         announced: announcedUrl !== undefined,
+       };
+     })
+diff --git a/packages/ui/src/lib/i18n/messages/ar.ts b/packages/ui/src/lib/i18n/messages/ar.ts
+index 245972e31..c51771af7 100644
+--- a/packages/ui/src/lib/i18n/messages/ar.ts
++++ b/packages/ui/src/lib/i18n/messages/ar.ts
+@@ -3723,6 +3723,12 @@ export const dict = {
+   'contextPanel.browser.devServers.hide': 'إخفاء المنفذ {port} من هذه القائمة',
+   'contextPanel.browser.devServers.showHiddenSingle': 'إظهار {count} منفذ مخفي',
+   'contextPanel.browser.devServers.showHiddenPlural': 'إظهار {count} منافذ مخفية',
++  'contextPanel.browser.devServers.name': 'تسمية المنفذ {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'تسمية خادم التطوير هذا',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'مثال: HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'يُحفظ للمنفذ {port} على هذا الجهاز.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'إعادة تعيين',
++  'contextPanel.browser.devServers.nameDialog.save': 'حفظ',
+   'sidebarFilesTree.menu.openInDefaultApp': 'فتح في التطبيق الافتراضي',
+   'sessions.sidebar.header.displayMode.showChats': 'إظهار قسم المحادثات',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'استخدام الإعدادات الافتراضية للجلسة',
+diff --git a/packages/ui/src/lib/i18n/messages/de.ts b/packages/ui/src/lib/i18n/messages/de.ts
+index 15f57043b..060638f10 100644
+--- a/packages/ui/src/lib/i18n/messages/de.ts
++++ b/packages/ui/src/lib/i18n/messages/de.ts
+@@ -3764,6 +3764,12 @@ export const dict = {
+   'contextPanel.browser.devServers.hide': 'Port {port} in dieser Liste ausblenden',
+   'contextPanel.browser.devServers.showHiddenSingle': '{count} ausgeblendeten Port anzeigen',
+   'contextPanel.browser.devServers.showHiddenPlural': '{count} ausgeblendete Ports anzeigen',
++  'contextPanel.browser.devServers.name': 'Port {port} benennen',
++  'contextPanel.browser.devServers.nameDialog.title': 'Diesen Dev-Server benennen',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'z. B. HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Wird für Port {port} auf diesem Rechner gespeichert.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Zurücksetzen',
++  'contextPanel.browser.devServers.nameDialog.save': 'Speichern',
+   'sidebarFilesTree.menu.openInDefaultApp': 'In Standard-App öffnen',
+   'sessions.sidebar.header.displayMode.showChats': 'Chat-Bereich anzeigen',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Sitzungsstandards verwenden',
+diff --git a/packages/ui/src/lib/i18n/messages/en.ts b/packages/ui/src/lib/i18n/messages/en.ts
+index 3b61d2c6f..bff8f9159 100644
+--- a/packages/ui/src/lib/i18n/messages/en.ts
++++ b/packages/ui/src/lib/i18n/messages/en.ts
+@@ -3766,6 +3766,12 @@ export const dict = {
+   'contextPanel.browser.devServers.hide': 'Hide port {port} from this list',
+   'contextPanel.browser.devServers.showHiddenSingle': 'Show {count} hidden port',
+   'contextPanel.browser.devServers.showHiddenPlural': 'Show {count} hidden ports',
++  'contextPanel.browser.devServers.name': 'Name port {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'Name this dev server',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'e.g. HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Saved for port {port} on this machine.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Reset',
++  'contextPanel.browser.devServers.nameDialog.save': 'Save',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Open in default app',
+   'sessions.sidebar.header.displayMode.showChats': 'Show chats section',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Use session defaults',
+diff --git a/packages/ui/src/lib/i18n/messages/es.ts b/packages/ui/src/lib/i18n/messages/es.ts
+index f593c8717..8344ff676 100644
+--- a/packages/ui/src/lib/i18n/messages/es.ts
++++ b/packages/ui/src/lib/i18n/messages/es.ts
+@@ -3767,6 +3767,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': 'Ocultar el puerto {port} de esta lista',
+   'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} puerto oculto',
+   'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} puertos ocultos',
++  'contextPanel.browser.devServers.name': 'Nombrar el puerto {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'Nombrar este servidor de desarrollo',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'p. ej., HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Se guarda para el puerto {port} en este equipo.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Restablecer',
++  'contextPanel.browser.devServers.nameDialog.save': 'Guardar',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Abrir con la app predeterminada',
+   'sessions.sidebar.header.displayMode.showChats': 'Mostrar sección de chats',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Usar los valores predeterminados de sesión',
+diff --git a/packages/ui/src/lib/i18n/messages/fr.ts b/packages/ui/src/lib/i18n/messages/fr.ts
+index df9de9b02..6c366b925 100644
+--- a/packages/ui/src/lib/i18n/messages/fr.ts
++++ b/packages/ui/src/lib/i18n/messages/fr.ts
+@@ -3765,6 +3765,12 @@ export const dict = {
+   'contextPanel.browser.devServers.hide': 'Masquer le port {port} de cette liste',
+   'contextPanel.browser.devServers.showHiddenSingle': 'Afficher {count} port masqué',
+   'contextPanel.browser.devServers.showHiddenPlural': 'Afficher {count} ports masqués',
++  'contextPanel.browser.devServers.name': 'Nommer le port {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'Nommer ce serveur de développement',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'p. ex. HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Enregistré pour le port {port} sur cette machine.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Réinitialiser',
++  'contextPanel.browser.devServers.nameDialog.save': 'Enregistrer',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Ouvrir avec l’app par défaut',
+   'sessions.sidebar.header.displayMode.showChats': 'Afficher la section des chats',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Utiliser les valeurs par défaut des sessions',
+diff --git a/packages/ui/src/lib/i18n/messages/he.ts b/packages/ui/src/lib/i18n/messages/he.ts
+index 8af58f0df..7a4c5486b 100644
+--- a/packages/ui/src/lib/i18n/messages/he.ts
++++ b/packages/ui/src/lib/i18n/messages/he.ts
+@@ -3723,6 +3723,12 @@ export const dict = {
+   'contextPanel.browser.devServers.hide': 'הסתר את פורט {port} מהרשימה',
+   'contextPanel.browser.devServers.showHiddenSingle': 'הצג פורט מוסתר {count}',
+   'contextPanel.browser.devServers.showHiddenPlural': 'הצג {count} פורטים מוסתרים',
++  'contextPanel.browser.devServers.name': 'תן שם ליציאה {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'תן שם לשרת הפיתוח',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'למשל HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'נשמר עבור יציאה {port} במחשב הזה.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'אפס',
++  'contextPanel.browser.devServers.nameDialog.save': 'שמור',
+   'sidebarFilesTree.menu.openInDefaultApp': 'פתח באפליקציית ברירת המחדל',
+   'sessions.sidebar.header.displayMode.showChats': 'הצג את מקטע הצ\'אטים',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'השתמש בברירות המחדל של ההפעלה',
+diff --git a/packages/ui/src/lib/i18n/messages/ja.ts b/packages/ui/src/lib/i18n/messages/ja.ts
+index a5a5b5175..a09a3575c 100644
+--- a/packages/ui/src/lib/i18n/messages/ja.ts
++++ b/packages/ui/src/lib/i18n/messages/ja.ts
+@@ -3766,6 +3766,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': 'ポート {port} をこの一覧から隠す',
+   'contextPanel.browser.devServers.showHiddenSingle': '隠したポート {count} 件を表示',
+   'contextPanel.browser.devServers.showHiddenPlural': '隠したポート {count} 件を表示',
++  'contextPanel.browser.devServers.name': 'ポート {port} に名前を付ける',
++  'contextPanel.browser.devServers.nameDialog.title': 'この dev サーバーに名前を付ける',
++  'contextPanel.browser.devServers.nameDialog.placeholder': '例: HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'このマシンのポート {port} に保存されます。',
++  'contextPanel.browser.devServers.nameDialog.reset': 'リセット',
++  'contextPanel.browser.devServers.nameDialog.save': '保存',
+   'sidebarFilesTree.menu.openInDefaultApp': '既定のアプリで開く',
+   'sessions.sidebar.header.displayMode.showChats': 'チャットセクションを表示',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'セッションの既定値を使う',
+diff --git a/packages/ui/src/lib/i18n/messages/ko.ts b/packages/ui/src/lib/i18n/messages/ko.ts
+index 5a5603629..060488ecb 100644
+--- a/packages/ui/src/lib/i18n/messages/ko.ts
++++ b/packages/ui/src/lib/i18n/messages/ko.ts
+@@ -3766,6 +3766,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': '이 목록에서 포트 {port} 숨기기',
+   'contextPanel.browser.devServers.showHiddenSingle': '숨긴 포트 {count}개 표시',
+   'contextPanel.browser.devServers.showHiddenPlural': '숨긴 포트 {count}개 표시',
++  'contextPanel.browser.devServers.name': '포트 {port} 이름 지정',
++  'contextPanel.browser.devServers.nameDialog.title': '이 개발 서버 이름 지정',
++  'contextPanel.browser.devServers.nameDialog.placeholder': '예: HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': '이 컴퓨터의 포트 {port}에 저장됩니다.',
++  'contextPanel.browser.devServers.nameDialog.reset': '재설정',
++  'contextPanel.browser.devServers.nameDialog.save': '저장',
+   'sidebarFilesTree.menu.openInDefaultApp': '기본 앱에서 열기',
+   'sessions.sidebar.header.displayMode.showChats': '채팅 섹션 표시',
+   'sessions.scheduledTasks.editor.useDefaults.label': '세션 기본값 사용',
+diff --git a/packages/ui/src/lib/i18n/messages/nl.ts b/packages/ui/src/lib/i18n/messages/nl.ts
+index f69932604..8cf8f956d 100644
+--- a/packages/ui/src/lib/i18n/messages/nl.ts
++++ b/packages/ui/src/lib/i18n/messages/nl.ts
+@@ -3766,6 +3766,12 @@ export const dict = {
+   'contextPanel.browser.devServers.hide': 'Poort {port} in deze lijst verbergen',
+   'contextPanel.browser.devServers.showHiddenSingle': '{count} verborgen poort tonen',
+   'contextPanel.browser.devServers.showHiddenPlural': '{count} verborgen poorten tonen',
++  'contextPanel.browser.devServers.name': 'Poort {port} een naam geven',
++  'contextPanel.browser.devServers.nameDialog.title': 'Deze dev-server een naam geven',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'bijv. HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Opgeslagen voor poort {port} op deze machine.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Herstellen',
++  'contextPanel.browser.devServers.nameDialog.save': 'Opslaan',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Openen in standaardapp',
+   'sessions.sidebar.header.displayMode.showChats': 'Chatsectie tonen',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Standaardinstellingen voor sessies gebruiken',
+diff --git a/packages/ui/src/lib/i18n/messages/pl.ts b/packages/ui/src/lib/i18n/messages/pl.ts
+index 54e72f7b2..0e3b5f924 100644
+--- a/packages/ui/src/lib/i18n/messages/pl.ts
++++ b/packages/ui/src/lib/i18n/messages/pl.ts
+@@ -3771,6 +3771,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': 'Ukryj port {port} na tej liście',
+   'contextPanel.browser.devServers.showHiddenSingle': 'Pokaż ukryte porty: {count}',
+   'contextPanel.browser.devServers.showHiddenPlural': 'Pokaż ukryte porty: {count}',
++  'contextPanel.browser.devServers.name': 'Nazwij port {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'Nazwij ten serwer deweloperski',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'np. HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Zapisane dla portu {port} na tym komputerze.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Resetuj',
++  'contextPanel.browser.devServers.nameDialog.save': 'Zapisz',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Otwórz w domyślnej aplikacji',
+   'sessions.sidebar.header.displayMode.showChats': 'Pokaż sekcję czatów',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Używaj domyślnych ustawień sesji',
+diff --git a/packages/ui/src/lib/i18n/messages/pt-BR.ts b/packages/ui/src/lib/i18n/messages/pt-BR.ts
+index dfe344cd4..b7194b2a0 100644
+--- a/packages/ui/src/lib/i18n/messages/pt-BR.ts
++++ b/packages/ui/src/lib/i18n/messages/pt-BR.ts
+@@ -3767,6 +3767,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': 'Ocultar a porta {port} desta lista',
+   'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} porta oculta',
+   'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} portas ocultas',
++  'contextPanel.browser.devServers.name': 'Nomear a porta {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'Nomear este servidor de desenvolvimento',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'ex.: HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Salvo para a porta {port} nesta máquina.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Redefinir',
++  'contextPanel.browser.devServers.nameDialog.save': 'Salvar',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Abrir no app padrão',
+   'sessions.sidebar.header.displayMode.showChats': 'Mostrar seção de chats',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Usar os padrões de sessão',
+diff --git a/packages/ui/src/lib/i18n/messages/tr.ts b/packages/ui/src/lib/i18n/messages/tr.ts
+index f8aa6c62c..815efdf9a 100644
+--- a/packages/ui/src/lib/i18n/messages/tr.ts
++++ b/packages/ui/src/lib/i18n/messages/tr.ts
+@@ -3764,6 +3764,12 @@ export const dict = {
+   'contextPanel.browser.devServers.hide': '{port} bağlantı noktasını bu listede gizle',
+   'contextPanel.browser.devServers.showHiddenSingle': '{count} gizli bağlantı noktasını göster',
+   'contextPanel.browser.devServers.showHiddenPlural': '{count} gizli bağlantı noktasını göster',
++  'contextPanel.browser.devServers.name': '{port} bağlantı noktasını adlandır',
++  'contextPanel.browser.devServers.nameDialog.title': 'Bu geliştirme sunucusunu adlandır',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'örn. HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': '{port} bağlantı noktası için bu makinede saklanır.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Sıfırla',
++  'contextPanel.browser.devServers.nameDialog.save': 'Kaydet',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Varsayılan uygulamada aç',
+   'sessions.sidebar.header.displayMode.showChats': 'Sohbetler bölümünü göster',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Oturum varsayılanlarını kullan',
+diff --git a/packages/ui/src/lib/i18n/messages/uk.ts b/packages/ui/src/lib/i18n/messages/uk.ts
+index 266396c47..ad29d323b 100644
+--- a/packages/ui/src/lib/i18n/messages/uk.ts
++++ b/packages/ui/src/lib/i18n/messages/uk.ts
+@@ -3767,6 +3767,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': 'Сховати порт {port} з цього списку',
+   'contextPanel.browser.devServers.showHiddenSingle': 'Показати приховані порти: {count}',
+   'contextPanel.browser.devServers.showHiddenPlural': 'Показати приховані порти: {count}',
++  'contextPanel.browser.devServers.name': 'Назвати порт {port}',
++  'contextPanel.browser.devServers.nameDialog.title': 'Назвати цей dev-сервер',
++  'contextPanel.browser.devServers.nameDialog.placeholder': 'напр., HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': 'Зберігається для порту {port} на цій машині.',
++  'contextPanel.browser.devServers.nameDialog.reset': 'Скинути',
++  'contextPanel.browser.devServers.nameDialog.save': 'Зберегти',
+   'sidebarFilesTree.menu.openInDefaultApp': 'Відкрити в програмі за замовчуванням',
+   'sessions.sidebar.header.displayMode.showChats': 'Показувати розділ чатів',
+   'sessions.scheduledTasks.editor.useDefaults.label': 'Використовувати типові налаштування сесії',
+diff --git a/packages/ui/src/lib/i18n/messages/zh-CN.ts b/packages/ui/src/lib/i18n/messages/zh-CN.ts
+index 2e7ece86e..31c443037 100644
+--- a/packages/ui/src/lib/i18n/messages/zh-CN.ts
++++ b/packages/ui/src/lib/i18n/messages/zh-CN.ts
+@@ -3767,6 +3767,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': '从此列表中隐藏端口 {port}',
+   'contextPanel.browser.devServers.showHiddenSingle': '显示 {count} 个已隐藏端口',
+   'contextPanel.browser.devServers.showHiddenPlural': '显示 {count} 个已隐藏端口',
++  'contextPanel.browser.devServers.name': '为端口 {port} 命名',
++  'contextPanel.browser.devServers.nameDialog.title': '为此开发服务器命名',
++  'contextPanel.browser.devServers.nameDialog.placeholder': '例如 HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': '保存到本机端口 {port}。',
++  'contextPanel.browser.devServers.nameDialog.reset': '重置',
++  'contextPanel.browser.devServers.nameDialog.save': '保存',
+   'sidebarFilesTree.menu.openInDefaultApp': '用默认应用打开',
+   'sessions.sidebar.header.displayMode.showChats': '显示聊天分区',
+   'sessions.scheduledTasks.editor.useDefaults.label': '使用会话默认设置',
+diff --git a/packages/ui/src/lib/i18n/messages/zh-TW.ts b/packages/ui/src/lib/i18n/messages/zh-TW.ts
+index cd99cc53e..c305ff5c2 100644
+--- a/packages/ui/src/lib/i18n/messages/zh-TW.ts
++++ b/packages/ui/src/lib/i18n/messages/zh-TW.ts
+@@ -3766,6 +3766,12 @@ export const dict: Record<I18nKey, string> = {
+   'contextPanel.browser.devServers.hide': '從此清單隱藏連接埠 {port}',
+   'contextPanel.browser.devServers.showHiddenSingle': '顯示 {count} 個已隱藏連接埠',
+   'contextPanel.browser.devServers.showHiddenPlural': '顯示 {count} 個已隱藏連接埠',
++  'contextPanel.browser.devServers.name': '為連接埠 {port} 命名',
++  'contextPanel.browser.devServers.nameDialog.title': '為此開發伺服器命名',
++  'contextPanel.browser.devServers.nameDialog.placeholder': '例如 HedgeDoc',
++  'contextPanel.browser.devServers.nameDialog.hint': '儲存於本機連接埠 {port}。',
++  'contextPanel.browser.devServers.nameDialog.reset': '重設',
++  'contextPanel.browser.devServers.nameDialog.save': '儲存',
+   'sidebarFilesTree.menu.openInDefaultApp': '以預設應用程式開啟',
+   'sessions.sidebar.header.displayMode.showChats': '顯示聊天區段',
+   'sessions.scheduledTasks.editor.useDefaults.label': '使用工作階段預設值',
