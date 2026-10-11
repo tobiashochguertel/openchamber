@@ -2610,7 +2610,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 {!isCompact ? (
                     <DropdownMenu open={isReady && agentMenuOpen} onOpenChange={isReady ? handleModelMenuOpenChange : undefined}>
                         <TooltipTrigger asChild>
-                            <DropdownMenuTrigger asChild>
+                            <DropdownMenuTrigger asChild nativeButton={false}>
                                 <div
                                     className={cn(
                                         'model-controls__model-trigger flex items-center gap-1.5 cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
@@ -2961,7 +2961,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
             <Tooltip delayDuration={600}>
                 <DropdownMenu>
                     <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger asChild nativeButton={false}>
                             <div
                                 className={cn(
                                     'model-controls__variant-trigger flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
@@ -3024,7 +3024,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     <Tooltip delayDuration={600}>
                         <DropdownMenu open={canSelectAgent && isAgentSelectorOpen} onOpenChange={canSelectAgent ? setIsAgentSelectorOpen : undefined}>
                             <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger asChild nativeButton={false}>
                                     <div className={cn(
                                         'flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
                                         buttonHeight
