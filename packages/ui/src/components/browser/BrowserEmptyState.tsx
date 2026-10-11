@@ -13,6 +13,8 @@ import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { useSpaceMarkLabel } from '@/lib/spaces/space-mark';
 import { useSpaceDirectoryStopped } from '@/lib/spaces/spaces-store';
 import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts } from '@/lib/browser/hiddenDevServers';
+import { setDevServerLabel, useDevServerLabels } from '@/lib/browser/devServerLabels';
+import { DevServerLabelDialog } from './DevServerLabelDialog';
 
 /**
  * What the panel shows before anything is loaded.
@@ -94,6 +96,8 @@ export const BrowserEmptyState: React.FC<{
   // A server that just announced itself is shown even on a hidden port: the
   // user started it, so it is no longer noise.
   const hiddenPorts = useHiddenDevServerPorts();
+  const labels = useDevServerLabels();
+  const [nameTarget, setNameTarget] = React.useState<number | null>(null);
   const visibleCandidates = React.useMemo(
     () => candidates.filter((candidate) => candidate.announced || !hiddenPorts.includes(candidate.port)),
     [candidates, hiddenPorts],
@@ -124,7 +128,9 @@ export const BrowserEmptyState: React.FC<{
             </span>
           ) : null}
           <div className="flex min-h-0 flex-col gap-1 overflow-y-auto pe-0.5">
-            {visibleCandidates.map((candidate) => (
+            {visibleCandidates.map((candidate) => {
+              const customLabel = labels[String(candidate.port)];
+              return (
               <div key={candidate.port} className="group/server flex shrink-0 items-center gap-1">
                 <Button
                   type="button"
@@ -134,6 +140,7 @@ export const BrowserEmptyState: React.FC<{
                   // tooltips of the two marks that say why the row does not open.
                   className={cn('min-w-0 flex-1 justify-start gap-2', remoteOnly && 'cursor-default opacity-60')}
                   aria-disabled={remoteOnly || undefined}
+                  title={customLabel ? candidate.url : undefined}
                   onClick={() => {
                     if (remoteOnly) return;
                     // The offer is answered; leaving it up would keep suggesting
@@ -154,7 +161,7 @@ export const BrowserEmptyState: React.FC<{
                   ) : (
                     <Icon name="global" className="size-3.5 shrink-0" aria-hidden="true" />
                   )}
-                  <span className="truncate">{browserUrlLabel(candidate.url) || candidate.url}</span>
+                  <span className="truncate">{customLabel ?? (browserUrlLabel(candidate.url) || candidate.url)}</span>
                   {spaceUnreachable ? (
                     <span
                       className="ms-auto shrink-0 text-muted-foreground"
@@ -166,9 +173,20 @@ export const BrowserEmptyState: React.FC<{
                     </span>
                   ) : (
                     <span className="ms-auto truncate typography-micro text-muted-foreground">
-                      {pathLabel(candidate.url)}
+                      {candidate.command || pathLabel(candidate.url)}
                     </span>
                   )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground opacity-0 group-hover/server:opacity-100 focus-visible:opacity-100"
+                  onClick={() => setNameTarget(candidate.port)}
+                  aria-label={t('contextPanel.browser.devServers.name', { port: candidate.port })}
+                  title={t('contextPanel.browser.devServers.name', { port: candidate.port })}
+                >
+                  <Icon name="pencil" className="size-3.5" aria-hidden="true" />
                 </Button>
                 {candidate.announced ? null : (
                   <Button
@@ -184,7 +202,8 @@ export const BrowserEmptyState: React.FC<{
                   </Button>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
           {hiddenCount > 0 ? (
             <Button
@@ -207,6 +226,13 @@ export const BrowserEmptyState: React.FC<{
           {t('contextPanel.browser.devServers.unavailable')}
         </span>
       ) : null}
+
+      <DevServerLabelDialog
+        port={nameTarget}
+        currentLabel={nameTarget !== null ? (labels[String(nameTarget)] ?? '') : ''}
+        onRename={setDevServerLabel}
+        onClose={() => setNameTarget(null)}
+      />
     </div>
   );
 };

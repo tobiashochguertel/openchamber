@@ -58,6 +58,19 @@ describe('dev server candidates', () => {
     expect(merged.map((entry) => entry.port)).toEqual([3000, 4323]);
   });
 
+  test('carries the owning process command through for labelling', () => {
+    const merged = mergeDevServerCandidates({ announced: [], discovered });
+    expect(merged.find((entry) => entry.port === 3000)?.command).toBe('node');
+  });
+
+  test('has no command for a server known only from its announcement', () => {
+    const merged = mergeDevServerCandidates({
+      announced: ['http://localhost:4323'],
+      discovered: null,
+    });
+    expect(merged[0]?.command).toBe('');
+  });
+
   test('is empty when neither source has anything', () => {
     expect(mergeDevServerCandidates({ announced: [], discovered: null })).toEqual([]);
     expect(mergeDevServerCandidates({ announced: [], discovered: [] })).toEqual([]);
