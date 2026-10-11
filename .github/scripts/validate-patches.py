@@ -20,7 +20,7 @@ Usage:
     validate-patches --repo /path/to/waveterm --check-patched-files
 
 Environment variables:
-    WAVETERM_GENPATCH_REPO     Path to waveterm repo (default: cwd)
+    FORK_GENPATCH_REPO     Path to the fork repo (default: cwd)
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from rich.table import Table
 
 console = Console()
 
-_REPO_ENV = "WAVETERM_GENPATCH_REPO"
+_REPO_ENV = "FORK_GENPATCH_REPO"
 _PATCH_DIR = ".github/patches"
 _WORKFLOW_FILE = ".github/workflows/sync-upstream-and-fix.yml"
 _GENERATE_SCRIPT = ".github/scripts/generate_upstream_prs.py"
@@ -130,7 +130,7 @@ def validate(
         Path.cwd(),
         "--repo",
         "-r",
-        help="Path to the waveterm repo.",
+        help="Path to the fork repo.",
         envvar=_REPO_ENV,
         show_default=True,
     ),

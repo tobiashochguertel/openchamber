@@ -53,7 +53,7 @@ git checkout -b feature/my-change
 
 # Generate the patch for upstream-modified files (new files are reported but
 # stay committed directly):
-waveterm-genpatch generate \
+fork-genpatch generate \
     --branch feature/my-change \
     --base upstream/main \
     --repo ~/work/dev/github/tobiashochguertel/openchamber \
