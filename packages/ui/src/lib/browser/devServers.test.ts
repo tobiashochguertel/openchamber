@@ -63,6 +63,26 @@ describe('dev server candidates', () => {
     expect(merged.find((entry) => entry.port === 3000)?.command).toBe('node');
   });
 
+  test('carries the docker and forward context discovery attached', () => {
+    const enriched = [
+      {
+        port: 45583,
+        url: 'http://localhost:45583/',
+        command: 'ssh',
+        docker: { id: 'a1', name: 'hedgedoc', image: 'hedgedoc:1.10', labels: { app: 'hedgedoc' } },
+      },
+      {
+        port: 8080,
+        url: 'http://localhost:8080/',
+        command: 'ssh',
+        forward: { host: 'app.internal', port: 80 },
+      },
+    ];
+    const merged = mergeDevServerCandidates({ announced: [], discovered: enriched });
+    expect(merged.find((entry) => entry.port === 45583)?.docker?.name).toBe('hedgedoc');
+    expect(merged.find((entry) => entry.port === 8080)?.forward?.host).toBe('app.internal');
+  });
+
   test('has no command for a server known only from its announcement', () => {
     const merged = mergeDevServerCandidates({
       announced: ['http://localhost:4323'],

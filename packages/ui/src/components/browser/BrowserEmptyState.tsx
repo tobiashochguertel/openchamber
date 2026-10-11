@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Icon } from '@/components/icon/Icon';
 import { OpenChamberLogo } from '@/components/ui/OpenChamberLogo';
 import { useI18n } from '@/lib/i18n';
-import { fetchDevServers, mergeDevServerCandidates, type DevServerDiscovery } from '@/lib/browser/devServers';
+import { fetchDevServers, mergeDevServerCandidates, type DevServerCandidate, type DevServerDiscovery } from '@/lib/browser/devServers';
 import { clearAnnouncedDevServers, useAnnouncedDevServers } from '@/lib/browser/announcedServers';
 import { browserUrlLabel } from '@/lib/browser/url';
 import { isRemoteWebLoopbackUrl, isSpaceUnreachableFromHere } from '@/lib/browser/devTunnel';
@@ -14,7 +14,9 @@ import { useSpaceMarkLabel } from '@/lib/spaces/space-mark';
 import { useSpaceDirectoryStopped } from '@/lib/spaces/spaces-store';
 import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts } from '@/lib/browser/hiddenDevServers';
 import { setDevServerLabel, useDevServerLabels } from '@/lib/browser/devServerLabels';
+import { isDevServerVisibleByRules, useDevServerFilterRules } from '@/lib/browser/devServerFilters';
 import { DevServerLabelDialog } from './DevServerLabelDialog';
+import { DevServerSettingsDialog } from './DevServerSettingsDialog';
 
 /**
  * What the panel shows before anything is loaded.
@@ -33,6 +35,17 @@ const pathLabel = (url: string): string => {
   } catch {
     return '';
   }
+};
+
+/**
+ * What the row says under the address: the container that published the port,
+ * the host a forward points at, the owning process, or the base path. A bare
+ * `ssh` or `node` says less than any of these.
+ */
+const serverContextLabel = (candidate: DevServerCandidate): string => {
+  if (candidate.docker) return candidate.docker.name;
+  if (candidate.forward) return `${candidate.forward.host}:${candidate.forward.port}`;
+  return candidate.command || pathLabel(candidate.url);
 };
 
 /** Re-checked while the panel is open: a project's servers appear seconds apart. */
@@ -97,12 +110,20 @@ export const BrowserEmptyState: React.FC<{
   // user started it, so it is no longer noise.
   const hiddenPorts = useHiddenDevServerPorts();
   const labels = useDevServerLabels();
+  const filterRules = useDevServerFilterRules();
   const [nameTarget, setNameTarget] = React.useState<number | null>(null);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const visibleCandidates = React.useMemo(
-    () => candidates.filter((candidate) => candidate.announced || !hiddenPorts.includes(candidate.port)),
-    [candidates, hiddenPorts],
+    () => candidates.filter(
+      (candidate) =>
+        (candidate.announced || !hiddenPorts.includes(candidate.port))
+        && isDevServerVisibleByRules(candidate, filterRules),
+    ),
+    [candidates, hiddenPorts, filterRules],
   );
-  const hiddenCount = candidates.length - visibleCandidates.length;
+  const hiddenCount = candidates.filter(
+    (candidate) => !candidate.announced && hiddenPorts.includes(candidate.port),
+  ).length;
 
   return (
     // The whole panel must not scroll: a centred column that overflows clips its
@@ -117,11 +138,24 @@ export const BrowserEmptyState: React.FC<{
 
       {candidates.length > 0 ? (
         <div className="flex min-h-0 w-full max-w-sm flex-col gap-1">
-          <span className="shrink-0 typography-micro text-start text-muted-foreground">
-            {announced.length > 0
-              ? t('contextPanel.browser.devServers.justStarted')
-              : t('contextPanel.browser.devServers.title')}
-          </span>
+          <div className="flex shrink-0 items-center justify-between gap-2">
+            <span className="typography-micro text-start text-muted-foreground">
+              {announced.length > 0
+                ? t('contextPanel.browser.devServers.justStarted')
+                : t('contextPanel.browser.devServers.title')}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0 text-muted-foreground"
+              onClick={() => setSettingsOpen(true)}
+              aria-label={t('contextPanel.browser.devServers.configure')}
+              title={t('contextPanel.browser.devServers.configure')}
+            >
+              <Icon name="settings-3" className="size-3.5" aria-hidden="true" />
+            </Button>
+          </div>
           {remoteOnly && !spaceUnreachable ? (
             <span className="shrink-0 pb-1 text-start typography-micro text-muted-foreground">
               {t('contextPanel.browser.devServers.remoteOnly')}
@@ -173,7 +207,7 @@ export const BrowserEmptyState: React.FC<{
                     </span>
                   ) : (
                     <span className="ms-auto truncate typography-micro text-muted-foreground">
-                      {candidate.command || pathLabel(candidate.url)}
+                      {serverContextLabel(candidate)}
                     </span>
                   )}
                 </Button>
@@ -232,6 +266,11 @@ export const BrowserEmptyState: React.FC<{
         currentLabel={nameTarget !== null ? (labels[String(nameTarget)] ?? '') : ''}
         onRename={setDevServerLabel}
         onClose={() => setNameTarget(null)}
+      />
+      <DevServerSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        servers={candidates}
       />
     </div>
   );
