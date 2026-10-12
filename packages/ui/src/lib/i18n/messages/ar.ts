@@ -3749,6 +3749,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.appendRule': 'إضافة {field} إلى القواعد',
   'contextPanel.browser.devServers.settings.expandServer': 'إظهار حقول المنفذ {port}',
   'contextPanel.browser.devServers.settings.noServers': 'لا توجد خوادم لفحصها',
+  'contextPanel.browser.devServers.settings.resize': 'تغيير حجم مربع الحوار',
   'sidebarFilesTree.menu.openInDefaultApp': 'فتح في التطبيق الافتراضي',
   'sessions.sidebar.header.displayMode.showChats': 'إظهار قسم المحادثات',
   'sessions.scheduledTasks.editor.useDefaults.label': 'استخدام الإعدادات الافتراضية للجلسة',

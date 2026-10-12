@@ -3792,6 +3792,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.appendRule': '將 {field} 加入規則',
   'contextPanel.browser.devServers.settings.expandServer': '顯示連接埠 {port} 的欄位',
   'contextPanel.browser.devServers.settings.noServers': '沒有可檢視的伺服器',
+  'contextPanel.browser.devServers.settings.resize': '調整對話方塊大小',
   'sidebarFilesTree.menu.openInDefaultApp': '以預設應用程式開啟',
   'sessions.sidebar.header.displayMode.showChats': '顯示聊天區段',
   'sessions.scheduledTasks.editor.useDefaults.label': '使用工作階段預設值',

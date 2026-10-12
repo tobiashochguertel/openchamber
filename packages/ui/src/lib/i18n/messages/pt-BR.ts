@@ -3793,6 +3793,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.appendRule': 'Adicionar {field} às regras',
   'contextPanel.browser.devServers.settings.expandServer': 'Mostrar campos da porta {port}',
   'contextPanel.browser.devServers.settings.noServers': 'Sem servidores para inspecionar',
+  'contextPanel.browser.devServers.settings.resize': 'Redimensionar diálogo',
   'sidebarFilesTree.menu.openInDefaultApp': 'Abrir no app padrão',
   'sessions.sidebar.header.displayMode.showChats': 'Mostrar seção de chats',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Usar os padrões de sessão',

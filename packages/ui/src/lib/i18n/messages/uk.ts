@@ -3793,6 +3793,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.appendRule': 'Додати {field} до правил',
   'contextPanel.browser.devServers.settings.expandServer': 'Показати поля порту {port}',
   'contextPanel.browser.devServers.settings.noServers': 'Немає серверів для огляду',
+  'contextPanel.browser.devServers.settings.resize': 'Змінити розмір діалогового вікна',
   'sidebarFilesTree.menu.openInDefaultApp': 'Відкрити в програмі за замовчуванням',
   'sessions.sidebar.header.displayMode.showChats': 'Показувати розділ чатів',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Використовувати типові налаштування сесії',

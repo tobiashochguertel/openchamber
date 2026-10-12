@@ -3792,6 +3792,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.appendRule': '{field} aan de regels toevoegen',
   'contextPanel.browser.devServers.settings.expandServer': 'Velden voor poort {port} tonen',
   'contextPanel.browser.devServers.settings.noServers': 'Geen servers om te inspecteren',
+  'contextPanel.browser.devServers.settings.resize': 'Dialoogvenster aanpassen',
   'sidebarFilesTree.menu.openInDefaultApp': 'Openen in standaardapp',
   'sessions.sidebar.header.displayMode.showChats': 'Chatsectie tonen',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Standaardinstellingen voor sessies gebruiken',

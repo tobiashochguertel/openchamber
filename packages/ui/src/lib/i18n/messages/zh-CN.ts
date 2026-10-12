@@ -3793,6 +3793,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.appendRule': '将 {field} 添加到规则',
   'contextPanel.browser.devServers.settings.expandServer': '显示端口 {port} 的字段',
   'contextPanel.browser.devServers.settings.noServers': '没有可检查的服务器',
+  'contextPanel.browser.devServers.settings.resize': '调整对话框大小',
   'sidebarFilesTree.menu.openInDefaultApp': '用默认应用打开',
   'sessions.sidebar.header.displayMode.showChats': '显示聊天分区',
   'sessions.scheduledTasks.editor.useDefaults.label': '使用会话默认设置',
