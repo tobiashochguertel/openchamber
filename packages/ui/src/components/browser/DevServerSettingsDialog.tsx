@@ -342,7 +342,7 @@ export const DevServerSettingsDialog: React.FC<{
           }}
           layoutMode="fit"
           variant="active-pill"
-          className="h-7"
+          className="h-7 flex-none"
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
