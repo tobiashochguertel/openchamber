@@ -7,7 +7,7 @@
   "type": "module",
   "main": "./dist-bundle/entry.mjs",
   "opencodeCli": {
-    "version": "2.0.26"
+    "version": "2.0.27"
   },
   "dependencies": {
     "@openchamber/web": "workspace:*",
@@ -139,7 +139,7 @@
         "AppImage"
       ],
       "category": "Development",
-      "icon": "resources/icons/app-icon.svg",
+      "icon": "resources/icons/app-icon.png",
       "executableName": "openchamber",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
       "desktop": {
