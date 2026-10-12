@@ -3749,6 +3749,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.appendRule': 'הוסף את {field} לכללים',
   'contextPanel.browser.devServers.settings.expandServer': 'הצג שדות עבור פורט {port}',
   'contextPanel.browser.devServers.settings.noServers': 'אין שרתים לבדיקה',
+  'contextPanel.browser.devServers.settings.resize': 'שינוי גודל תיבת הדו-שיח',
   'sidebarFilesTree.menu.openInDefaultApp': 'פתח באפליקציית ברירת המחדל',
   'sessions.sidebar.header.displayMode.showChats': 'הצג את מקטע הצ\'אטים',
   'sessions.scheduledTasks.editor.useDefaults.label': 'השתמש בברירות המחדל של ההפעלה',

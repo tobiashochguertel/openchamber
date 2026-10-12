@@ -3792,6 +3792,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.appendRule': '{field} をルールに追加',
   'contextPanel.browser.devServers.settings.expandServer': 'ポート {port} のフィールドを表示',
   'contextPanel.browser.devServers.settings.noServers': '検査対象のサーバーがありません',
+  'contextPanel.browser.devServers.settings.resize': 'ダイアログのサイズを変更',
   'sidebarFilesTree.menu.openInDefaultApp': '既定のアプリで開く',
   'sessions.sidebar.header.displayMode.showChats': 'チャットセクションを表示',
   'sessions.scheduledTasks.editor.useDefaults.label': 'セッションの既定値を使う',

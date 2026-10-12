@@ -3792,6 +3792,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.appendRule': '{field}를 규칙에 추가',
   'contextPanel.browser.devServers.settings.expandServer': '포트 {port}의 필드 표시',
   'contextPanel.browser.devServers.settings.noServers': '검사할 서버 없음',
+  'contextPanel.browser.devServers.settings.resize': '대화상자 크기 조정',
   'sidebarFilesTree.menu.openInDefaultApp': '기본 앱에서 열기',
   'sessions.sidebar.header.displayMode.showChats': '채팅 섹션 표시',
   'sessions.scheduledTasks.editor.useDefaults.label': '세션 기본값 사용',

@@ -3790,6 +3790,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.appendRule': '{field} alanını kurallara ekle',
   'contextPanel.browser.devServers.settings.expandServer': '{port} bağlantı noktası alanlarını göster',
   'contextPanel.browser.devServers.settings.noServers': 'İncelenecek sunucu yok',
+  'contextPanel.browser.devServers.settings.resize': 'İletişim penceresini yeniden boyutlandır',
   'sidebarFilesTree.menu.openInDefaultApp': 'Varsayılan uygulamada aç',
   'sessions.sidebar.header.displayMode.showChats': 'Sohbetler bölümünü göster',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Oturum varsayılanlarını kullan',

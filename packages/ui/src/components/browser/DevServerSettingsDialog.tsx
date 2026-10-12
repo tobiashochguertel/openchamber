@@ -15,8 +15,44 @@ import {
 import { showHiddenDevServerPorts, unhideDevServerPort, useHiddenDevServerPorts } from '@/lib/browser/hiddenDevServers';
 import { setDevServerLabel, useDevServerLabels } from '@/lib/browser/devServerLabels';
 import { devServerContextLabel, type DevServerCandidate } from '@/lib/browser/devServers';
+import {
+  setDevServerDialogSize,
+  useDevServerDialogSize,
+  type DevServerDialogSize,
+} from '@/lib/browser/devServerDialogSize';
 
 type TabKey = 'filters' | 'hidden' | 'names';
+
+const DIALOG_MIN_WIDTH = 620;
+const DIALOG_MIN_HEIGHT = 400;
+
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+
+const measureTextWidth = (text: string): number => {
+  if (measureCtx === undefined) {
+    measureCtx = document.createElement('canvas').getContext('2d');
+    if (measureCtx) measureCtx.font = '11px ui-sans-serif, system-ui, sans-serif';
+  }
+  return measureCtx ? measureCtx.measureText(text).width : text.length * 6.5;
+};
+
+/**
+ * Size the dialog so the inspector column can show its longest
+ * "field   value" line untruncated. Only used until the user resizes
+ * by hand; the manual size is remembered instead.
+ */
+const estimateDialogSize = (servers: readonly DevServerCandidate[]): DevServerDialogSize => {
+  let inspectorWidth = 300;
+  for (const server of servers) {
+    for (const { field, value } of inspectFields(server)) {
+      inspectorWidth = Math.max(inspectorWidth, measureTextWidth(`${field}  ${value}`) + 56);
+    }
+  }
+  const rows = Math.min(Math.max(servers.length, 6), 14);
+  const width = Math.min(Math.max(320 + inspectorWidth, DIALOG_MIN_WIDTH), window.innerWidth - 48);
+  const height = Math.min(Math.max(230 + rows * 28, DIALOG_MIN_HEIGHT), window.innerHeight - 48);
+  return { width: Math.round(width), height: Math.round(height) };
+};
 
 type InspectField = { readonly field: string; readonly value: string };
 
@@ -236,8 +272,50 @@ export const DevServerSettingsDialog: React.FC<{
   onOpenChange: (open: boolean) => void;
   servers: readonly DevServerCandidate[];
 }> = ({ open, onOpenChange, servers }) => {
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
   const [tab, setTab] = React.useState<TabKey>('filters');
+  const storedSize = useDevServerDialogSize();
+  const [dragSize, setDragSize] = React.useState<DevServerDialogSize | null>(null);
+  const autoSize = React.useMemo(() => estimateDialogSize(servers), [servers]);
+  const size = dragSize ?? storedSize ?? autoSize;
+  const dragRef = React.useRef<{
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+    last: DevServerDialogSize;
+  } | null>(null);
+
+  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = { width: size.width, height: size.height };
+    dragRef.current = { startX: event.clientX, startY: event.clientY, startWidth: start.width, startHeight: start.height, last: start };
+    const target = event.currentTarget;
+    target.setPointerCapture(event.pointerId);
+    const sign = direction === 'rtl' ? -1 : 1;
+    const onMove = (moveEvent: PointerEvent) => {
+      const state = dragRef.current;
+      if (!state) return;
+      const next = {
+        width: Math.min(Math.max(state.startWidth + (moveEvent.clientX - state.startX) * sign, DIALOG_MIN_WIDTH), window.innerWidth - 48),
+        height: Math.min(Math.max(state.startHeight + (moveEvent.clientY - state.startY), DIALOG_MIN_HEIGHT), window.innerHeight - 48),
+      };
+      state.last = next;
+      setDragSize(next);
+    };
+    const onUp = () => {
+      const state = dragRef.current;
+      dragRef.current = null;
+      setDragSize(null);
+      if (state) setDevServerDialogSize(state.last);
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', onUp);
+      target.removeEventListener('pointercancel', onUp);
+    };
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
+    target.addEventListener('pointercancel', onUp);
+    event.preventDefault();
+  };
 
   const tabs = React.useMemo<SortableTabsStripItem[]>(() => [
     { id: 'filters', label: t('contextPanel.browser.devServers.settings.filtersTab') },
@@ -247,7 +325,10 @@ export const DevServerSettingsDialog: React.FC<{
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent
+        className="max-w-none"
+        style={{ width: size.width, height: size.height, maxWidth: '95vw', maxHeight: '90vh' }}
+      >
         <DialogHeader>
           <DialogTitle>{t('contextPanel.browser.devServers.settings.title')}</DialogTitle>
         </DialogHeader>
@@ -264,7 +345,7 @@ export const DevServerSettingsDialog: React.FC<{
           className="h-7"
         />
 
-        <div className="min-h-[200px]">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === 'filters' && <FiltersTab servers={servers} />}
           {tab === 'hidden' && <HiddenTab />}
           {tab === 'names' && <NamesTab />}
@@ -275,6 +356,29 @@ export const DevServerSettingsDialog: React.FC<{
             {t('dialog.common.actions.close')}
           </Button>
         </DialogFooter>
+
+        <div
+          role="separator"
+          aria-label={t('contextPanel.browser.devServers.settings.resize')}
+          onPointerDown={startResize}
+          className="absolute inset-e-2 bottom-2 z-10 flex size-7 cursor-nwse-resize items-end justify-end touch-none select-none rtl:cursor-nesw-resize"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden
+            className="rtl:-scale-x-100"
+          >
+            <path
+              d="M9.11111 2L2 9.11111M10 6.44444L6.44444 10"
+              className="stroke-muted-foreground"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
       </DialogContent>
     </Dialog>
   );

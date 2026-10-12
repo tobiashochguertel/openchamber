@@ -3790,6 +3790,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.appendRule': '{field} zu den Regeln hinzufügen',
   'contextPanel.browser.devServers.settings.expandServer': 'Felder für Port {port} anzeigen',
   'contextPanel.browser.devServers.settings.noServers': 'Keine Server zum Inspizieren',
+  'contextPanel.browser.devServers.settings.resize': 'Dialoggröße ändern',
   'sidebarFilesTree.menu.openInDefaultApp': 'In Standard-App öffnen',
   'sessions.sidebar.header.displayMode.showChats': 'Chat-Bereich anzeigen',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Sitzungsstandards verwenden',
