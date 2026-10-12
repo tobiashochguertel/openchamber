@@ -82,6 +82,9 @@ const REFUSED_ACROSS_BOUNDARY_ROUTES = Object.freeze([
   '/api/git/worktrees',
   '/api/git/worktree-type',
   '/api/git/integrate',
+  // The batched worktree read stays out of a space for the same reason
+  // `/api/git/worktrees` does.
+  '/api/git/project-worktrees',
   '/api/fs/preview',
   // Older inside servers answered this one; it stays refused.
   '/api/fs/serve',
@@ -239,6 +242,7 @@ export const describeFailure = (error) => {
       return { status: 404, code: 'space_not_found', message: 'There is no such space.' };
     case 'space_not_running':
     case 'space_move_unfinished':
+    case 'place_unreachable':
       return { status: 503, code, message: shortText(error.message) };
     case 'space_token_unreadable':
     case 'space_setup_failed':

@@ -1,6 +1,5 @@
 import React from 'react';
 import type { Part } from '@/lib/opencode/model';
-import { isQuestionTool } from '@/lib/opencode/tools';
 
 import UserTextPart from './parts/UserTextPart';
 import ToolPart from './parts/ToolPart';
@@ -9,7 +8,7 @@ import ReasoningPart from './parts/ReasoningPart';
 import { MessageFilesDisplay } from '../FileAttachment';
 import type { ToolPart as ToolPartType } from '@/lib/opencode/model';
 import type { StreamPhase, ToolPopupContent, AgentMentionInfo } from './types';
-import type { TurnActivityGroup, TurnChangedFile, TurnGroupingContext } from '../lib/turns/types';
+import type { TurnChangedFile, TurnGroupingContext } from '../lib/turns/types';
 import { cn } from '@/lib/utils';
 import { isEmptyTextPart, extractTextContent } from './partUtils';
 import { FadeInOnReveal } from './FadeInOnReveal';
@@ -38,7 +37,6 @@ import { useFactsFit } from './useFactsFit';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { TextSelectionMenu } from './TextSelectionMenu';
-import { copyTextToClipboard } from '@/lib/clipboard';
 import { useChatSurfaceMode } from '@/components/chat/useChatSurfaceMode';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
@@ -48,15 +46,13 @@ import { Icon } from "@/components/icon/Icon";
 import { formatTimestampForDisplay } from './timeFormat';
 import { ToolRevealOnMount } from './parts/ToolRevealOnMount';
 import { StaticToolRow } from './parts/ProgressiveGroup';
-import { isExpandableTool, isStandaloneTool } from './parts/toolRenderUtils';
-import TurnActivity from '../components/TurnActivity';
+import { isExpandableTool } from './parts/toolRenderUtils';
 import { LiveActivityCollapse } from '../components/LiveActivityCollapse';
 import { LiveFinalActivityContext } from '../components/liveActivityContext';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { resolveProjectForSessionDirectory } from '@/lib/projectResolution';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useI18n } from '@/lib/i18n';
-import { extractLoopbackUrls } from '@/lib/url';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import {
     type ReviewTransferDirection,
@@ -380,7 +376,7 @@ const CopyMessageLinkButton: React.FC<{ onCopyLink: () => void }> = ({ onCopyLin
     );
 };
 
-const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobile, alwaysShowActions = isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onCopyLink, onShowPopup, agentMention, onRevert, onFork, contextPinned, contextPinPending, onToggleContextPin, userActionsMode = 'inline', stickyUserHeaderEnabled = true, extraActions }: {
+const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobile, alwaysShowActions = isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onShowPopup, agentMention, onRevert, onFork, contextPinned, contextPinPending, onToggleContextPin, userActionsMode = 'inline', stickyUserHeaderEnabled = true, extraActions }: {
     messageId: string;
     parts: Part[];
     messageCreatedAt?: number | null;
@@ -390,7 +386,6 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
     hasTextContent?: boolean;
     onCopyMessage?: () => void | boolean | Promise<void | boolean>;
     copiedMessage?: boolean;
-    onCopyLink?: () => void;
     onShowPopup: (content: ToolPopupContent) => void;
     agentMention?: AgentMentionInfo;
     onRevert?: () => void;
@@ -520,14 +515,6 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
                 },
             });
         }
-        if (onCopyLink) {
-            actions.push({
-                id: 'copy-link',
-                label: t('chat.messageBody.actions.copyLink'),
-                icon: <Icon name="link" className="h-4 w-4" />,
-                onSelect: onCopyLink,
-            });
-        }
         if (onToggleContextPin && hasCopyableText) {
             actions.push({
                 id: 'pin-context',
@@ -557,7 +544,7 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
             actions.push({ id: extra.id, label: extra.label, icon: extra.icon, onSelect: extra.onSelect });
         }
         return actions;
-    }, [canCopyMessage, contextPinPending, contextPinned, effectiveOnFork, extraActions, hasCopyableText, onCopyLink, onCopyMessage, onRevert, onToggleContextPin, t]);
+    }, [canCopyMessage, contextPinPending, contextPinned, effectiveOnFork, extraActions, hasCopyableText, onCopyMessage, onRevert, onToggleContextPin, t]);
     const timestamp = React.useMemo(() => {
         void locale;
         if (typeof messageCreatedAt !== 'number' || messageCreatedAt <= 0) return null;
@@ -565,7 +552,7 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
         return formatted.length > 0 ? formatted : null;
     }, [locale, messageCreatedAt, timeFormatPreference]);
     const hasExtraActions = Boolean(extraActions && extraActions.length > 0);
-    const actionsBlock = chatSurfaceMode !== 'peek' && ((canCopyMessage && hasCopyableText) || onCopyLink || onRevert || effectiveOnFork || onToggleContextPin || hasExtraActions) && showUserActions ? (
+    const actionsBlock = chatSurfaceMode !== 'peek' && ((canCopyMessage && hasCopyableText) || onRevert || effectiveOnFork || onToggleContextPin || hasExtraActions) && showUserActions ? (
         <div className={cn(
             'group/user-actions',
             isMobile
@@ -725,7 +712,6 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
                             <TooltipContent sideOffset={6}>{t(contextPinned ? 'chat.messageBody.actions.unpinContext' : 'chat.messageBody.actions.pinContext')}</TooltipContent>
                         </Tooltip>
                     )}
-                    {onCopyLink && <CopyMessageLinkButton onCopyLink={onCopyLink} />}
                     {canCopyMessage && hasCopyableText && (
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -837,46 +823,21 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
     );
 });
 
-interface AssistantMessageActionButtonsProps {
-    hasCopyableText: boolean;
-    isTouchContext: boolean;
-    onCopyMessage?: () => void | boolean | Promise<void | boolean>;
-    onCopyLink?: () => void;
-    reviewTransferAction?: {
-        ariaLabel: string;
-        tooltip: string;
-        onClick: () => void | Promise<void>;
-    };
-    onShareImage: (sourceElement?: HTMLElement | null) => Promise<void>;
-    ttsText: string;
-    // Shared with the message's other reading controls; see useMessageTTS.
-    ttsReadingKey?: string;
-    extraActions?: MessageExtraAction[];
-}
-
-const AssistantMessageActionButtons = React.memo(({
+/** Copies an assistant answer; the icon turns into a tick for a moment once it lands. */
+const AssistantCopyButton = React.memo(({
     hasCopyableText,
     isTouchContext,
     onCopyMessage,
-    onCopyLink,
-    reviewTransferAction,
-    onShareImage,
-    ttsText,
-    ttsReadingKey,
-    extraActions,
-}: AssistantMessageActionButtonsProps) => {
+}: {
+    hasCopyableText: boolean;
+    isTouchContext: boolean;
+    onCopyMessage: () => void | boolean | Promise<void | boolean>;
+}) => {
     const { t } = useI18n();
-    const chatSurfaceMode = useChatSurfaceMode();
-    const { isPlaying: isTTSPlaying, play: playTTS, stop: stopTTS } = useMessageTTS(ttsReadingKey);
-    const showMessageTTSButtons = useConfigStore((state) => state.showMessageTTSButtons);
-    const voiceProvider = useConfigStore((state) => state.voiceProvider);
     const [copyHintVisible, setCopyHintVisible] = React.useState(false);
     const [isMessageCopied, setIsMessageCopied] = React.useState(false);
-    const [isSharing, setIsSharing] = React.useState(false);
-    const [isTransferringReview, setIsTransferringReview] = React.useState(false);
     const copyHintTimeoutRef = React.useRef<number | null>(null);
     const copiedResetTimeoutRef = React.useRef<number | null>(null);
-    const canCopyMessage = Boolean(onCopyMessage);
 
     const clearCopyHintTimeout = React.useCallback(() => {
         if (copyHintTimeoutRef.current !== null && typeof window !== 'undefined') {
@@ -900,16 +861,16 @@ const AssistantMessageActionButtons = React.memo(({
     }, [clearCopiedResetTimeout, clearCopyHintTimeout]);
 
     React.useEffect(() => {
-        if (!hasCopyableText || !canCopyMessage) {
+        if (!hasCopyableText) {
             setCopyHintVisible(false);
             setIsMessageCopied(false);
             clearCopyHintTimeout();
             clearCopiedResetTimeout();
         }
-    }, [canCopyMessage, clearCopiedResetTimeout, clearCopyHintTimeout, hasCopyableText]);
+    }, [clearCopiedResetTimeout, clearCopyHintTimeout, hasCopyableText]);
 
     const revealCopyHint = React.useCallback(() => {
-        if (!isTouchContext || !canCopyMessage || !hasCopyableText || typeof window === 'undefined') {
+        if (!isTouchContext || !hasCopyableText || typeof window === 'undefined') {
             return;
         }
 
@@ -919,11 +880,11 @@ const AssistantMessageActionButtons = React.memo(({
             setCopyHintVisible(false);
             copyHintTimeoutRef.current = null;
         }, 1800);
-    }, [canCopyMessage, clearCopyHintTimeout, hasCopyableText, isTouchContext]);
+    }, [clearCopyHintTimeout, hasCopyableText, isTouchContext]);
 
     const handleCopyButtonClick = React.useCallback(
         async (event: React.MouseEvent<HTMLButtonElement>) => {
-            if (!onCopyMessage || !hasCopyableText) {
+            if (!hasCopyableText) {
                 return;
             }
 
@@ -950,6 +911,85 @@ const AssistantMessageActionButtons = React.memo(({
         },
         [clearCopiedResetTimeout, hasCopyableText, isTouchContext, onCopyMessage, revealCopyHint]
     );
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    data-visible={copyHintVisible || isMessageCopied ? 'true' : undefined}
+                    className={cn(
+                        'h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring',
+                        !hasCopyableText && 'opacity-50'
+                    )}
+                    disabled={!hasCopyableText}
+                    aria-label={t('chat.messageBody.actions.copyMessageAria')}
+                    aria-hidden={!hasCopyableText}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        void handleCopyButtonClick(event);
+                    }}
+                    onFocus={() => {
+                        if (hasCopyableText) {
+                            setCopyHintVisible(true);
+                        }
+                    }}
+                    onBlur={() => {
+                        if (!isMessageCopied) {
+                            setCopyHintVisible(false);
+                        }
+                    }}
+                >
+                    {isMessageCopied ? (
+                        <Icon name="check" className="h-3 w-3 text-[color:var(--status-success)]" />
+                    ) : (
+                        <Icon name="file-copy" className="h-3 w-3" />
+                    )}
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.copyAnswer')}</TooltipContent>
+        </Tooltip>
+    );
+});
+
+interface AssistantMessageActionButtonsProps {
+    hasCopyableText: boolean;
+    isTouchContext: boolean;
+    onCopyMessage?: () => void | boolean | Promise<void | boolean>;
+    onCopyLink?: () => void;
+    reviewTransferAction?: {
+        ariaLabel: string;
+        tooltip: string;
+        onClick: () => void | Promise<void>;
+    };
+    onShareImage: (sourceElement?: HTMLElement | null) => Promise<void>;
+    ttsText: string;
+    // Shared with the message's other reading controls; see useMessageTTS.
+    ttsReadingKey?: string;
+    extraActions?: MessageExtraAction[];
+}
+
+/** The full action row under an assistant text block when the split-actions setting is on. */
+const AssistantMessageActionButtons = React.memo(({
+    hasCopyableText,
+    isTouchContext,
+    onCopyMessage,
+    onCopyLink,
+    reviewTransferAction,
+    onShareImage,
+    ttsText,
+    ttsReadingKey,
+    extraActions,
+}: AssistantMessageActionButtonsProps) => {
+    const { t } = useI18n();
+    const chatSurfaceMode = useChatSurfaceMode();
+    const { isPlaying: isTTSPlaying, play: playTTS, stop: stopTTS } = useMessageTTS(ttsReadingKey);
+    const showMessageTTSButtons = useConfigStore((state) => state.showMessageTTSButtons);
+    const voiceProvider = useConfigStore((state) => state.voiceProvider);
+    const [isSharing, setIsSharing] = React.useState(false);
+    const [isTransferringReview, setIsTransferringReview] = React.useState(false);
 
     const handleShareImageClick = React.useCallback(
         async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -1022,44 +1062,7 @@ const AssistantMessageActionButtons = React.memo(({
         <>
             {onCopyLink && <CopyMessageLinkButton onCopyLink={onCopyLink} />}
             {onCopyMessage && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            data-visible={copyHintVisible || isMessageCopied ? 'true' : undefined}
-                            className={cn(
-                                'h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring',
-                                !hasCopyableText && 'opacity-50'
-                            )}
-                            disabled={!hasCopyableText}
-                            aria-label={t('chat.messageBody.actions.copyMessageAria')}
-                            aria-hidden={!hasCopyableText}
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={(event) => {
-                                void handleCopyButtonClick(event);
-                            }}
-                            onFocus={() => {
-                                if (hasCopyableText) {
-                                    setCopyHintVisible(true);
-                                }
-                            }}
-                            onBlur={() => {
-                                if (!isMessageCopied) {
-                                    setCopyHintVisible(false);
-                                }
-                            }}
-                        >
-                            {isMessageCopied ? (
-                                <Icon name="check" className="h-3 w-3 text-[color:var(--status-success)]" />
-                            ) : (
-                                <Icon name="file-copy" className="h-3 w-3" />
-                            )}
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.copyAnswer')}</TooltipContent>
-                </Tooltip>
+                <AssistantCopyButton hasCopyableText={hasCopyableText} isTouchContext={isTouchContext} onCopyMessage={onCopyMessage} />
             )}
             {reviewTransferAction && chatSurfaceMode !== 'mini-chat' ? (
                 <Tooltip>
@@ -1192,7 +1195,6 @@ const AssistantMessageBody = React.memo(({
     const alwaysShowMessageActions = Boolean(alwaysShowActions ?? isMobile);
     const { src: footerLogoSrc, onError: handleFooterLogoError, hasLogo: footerHasLogo } = useProviderLogo(footerProviderID ?? null);
     const awaitingMessageCompletion = !isMessageCompleted;
-    const animateActivityRows = awaitingMessageCompletion || Boolean(turnGroupingContext?.isWorking);
 
     const visibleParts = React.useMemo(() => {
         return parts.filter((part) => !isEmptyTextPart(part));
@@ -1223,33 +1225,7 @@ const AssistantMessageBody = React.memo(({
         };
     }
 
-    const currentToolIds = React.useMemo(() => {
-        const ids = new Set<string>();
-
-        for (const toolPart of toolParts) {
-            ids.add(toolPart.id);
-        }
-
-        const activitySegments = turnGroupingContext?.activityGroupSegments;
-        if (Array.isArray(activitySegments)) {
-            for (const segment of activitySegments) {
-                if (segment.anchorMessageId !== messageId) {
-                    continue;
-                }
-                for (const activity of segment.parts) {
-                    if (activity.kind !== 'tool') {
-                        continue;
-                    }
-                    const toolId = (activity.part as { id?: unknown }).id;
-                    if (typeof toolId === 'string' && toolId.length > 0) {
-                        ids.add(toolId);
-                    }
-                }
-            }
-        }
-
-        return Array.from(ids);
-    }, [messageId, toolParts, turnGroupingContext?.activityGroupSegments]);
+    const currentToolIds = React.useMemo(() => toolParts.map((toolPart) => toolPart.id), [toolParts]);
     const shouldAnimateNewToolMount = Boolean(turnGroupingContext?.isWorking && toolRevealReadyRef.current);
     const persistedToolIds = toolRevealStateRef.current.persistedToolIds;
     const animatedToolIds = toolRevealStateRef.current.animatedToolIds;
@@ -1288,43 +1264,10 @@ const AssistantMessageBody = React.memo(({
     ), [assistantTextParts, isMessageCompleted]);
     const assistantPlanText = React.useMemo(() => flattenAssistantTextParts(assistantTextParts), [assistantTextParts]);
 
-    const openContextPreview = useUIStore((state) => state.openContextPreview);
     const isVSCode = isVSCodeRuntime();
     const isMiniChatSurface = chatSurfaceMode === 'mini-chat';
     const canUseProjectPlanActions = !isVSCode && !isMiniChatSurface && !isMobile;
     const canShowMultiRunAction = !isVSCode && !isMiniChatSurface && !isMobile;
-
-    const messagePreviewUrl = React.useMemo(() => {
-        if (isVSCode || isMobile || isMiniChatSurface) {
-            return null;
-        }
-
-        for (const part of assistantTextParts) {
-            const text = (part as { text?: unknown }).text;
-            if (typeof text !== 'string' || text.length === 0) {
-                continue;
-            }
-            const url = extractLoopbackUrls(text)[0];
-            if (!url) {
-                continue;
-            }
-            return url.includes('0.0.0.0') ? url.replace('0.0.0.0', '127.0.0.1') : url;
-        }
-        for (const part of toolParts) {
-            const state = (part as unknown as { state?: unknown }).state as Record<string, unknown> | undefined;
-            const output = state && typeof state.output === 'string' ? state.output : null;
-            if (!output) {
-                continue;
-            }
-            // eslint-disable-next-line no-control-regex
-            const url = extractLoopbackUrls(output.replace(/\x1b\[[0-9;]*m/g, ''))[0];
-            if (!url) {
-                continue;
-            }
-            return url.includes('0.0.0.0') ? url.replace('0.0.0.0', '127.0.0.1') : url;
-        }
-        return null;
-    }, [assistantTextParts, isMobile, isMiniChatSurface, isVSCode, toolParts]);
 
     const createSessionFromAssistantMessage = useSessionUIStore((state) => state.createSessionFromAssistantMessage);
     const currentSessionId = useChatSessionSelection().sessionId;
@@ -1372,14 +1315,11 @@ const AssistantMessageBody = React.memo(({
     const [isSavingPlan, setIsSavingPlan] = React.useState(false);
     const [isForkDialogOpen, setIsForkDialogOpen] = React.useState(false);
     const [isForkSubmitting, setIsForkSubmitting] = React.useState(false);
-    const chatRenderMode = useUIStore((state) => state.chatRenderMode);
     const collapsibleThinkingBlocks = useUIStore((state) => state.collapsibleThinkingBlocks);
     const showSplitAssistantMessageActions = useUIStore((state) => state.showSplitAssistantMessageActions);
     const timeFormatPreference = useUIStore((state) => state.timeFormatPreference);
     const vscodeApi = useRuntimeAPIs().vscode;
-    const isSortedRenderMode = chatRenderMode === 'sorted';
     const liveFinalActivity = React.useContext(LiveFinalActivityContext);
-    const collapsedPreviewCount = 7;
     const isLastAssistantInTurn = turnGroupingContext?.isLastAssistantInTurn ?? false;
     const hasStopFinish = messageFinish === 'stop';
     const effectiveStreamPhase: StreamPhase = hasStopFinish ? 'completed' : streamPhase;
@@ -1686,77 +1626,11 @@ const AssistantMessageBody = React.memo(({
         [assistantTextParts, earlierAssistantText, shareMessageAsImage, t]
     );
 
-    const activityPartsForTurn = React.useMemo(() => {
-        const all = turnGroupingContext?.activityParts;
-        if (!isSortedRenderMode || !all) {
-            return [];
-        }
-        return all;
-    }, [isSortedRenderMode, turnGroupingContext?.activityParts]);
-
-    const activityGroupSegmentsForMessage = React.useMemo(() => {
-        const all = turnGroupingContext?.activityGroupSegments;
-        if (!isSortedRenderMode || !all) {
-            return [];
-        }
-        return all.filter((segment) => segment.anchorMessageId === messageId);
-    }, [isSortedRenderMode, messageId, turnGroupingContext?.activityGroupSegments]);
-
-    const hasAnchoredActivitySegments = activityGroupSegmentsForMessage.length > 0;
-
-    const activityByPart = React.useMemo(() => {
-        const byRef = new Map<Part, (typeof activityPartsForTurn)[number]>();
-        const byId = new Map<string, (typeof activityPartsForTurn)[number]>();
-        activityPartsForTurn.forEach((activity) => {
-            byRef.set(activity.part, activity);
-            const partId = (activity.part as { id?: unknown }).id;
-            if (typeof partId === 'string' && partId.length > 0) {
-                byId.set(partId, activity);
-            }
-        });
-
-        return {
-            get: (part: Part) => {
-                const direct = byRef.get(part);
-                if (direct) {
-                    return direct;
-                }
-                const partId = (part as { id?: unknown }).id;
-                if (typeof partId === 'string' && partId.length > 0) {
-                    return byId.get(partId);
-                }
-                return undefined;
-            },
-        };
-    }, [activityPartsForTurn]);
-
-    const toggleActivityGroup = turnGroupingContext?.toggleGroup;
-    const isActivityOwnerMessage = !isSortedRenderMode
-        || !turnGroupingContext?.activityOwnerMessageId
-        || turnGroupingContext.activityOwnerMessageId === messageId
-        || hasAnchoredActivitySegments;
-
-    const shouldRenderActivityGroup = isSortedRenderMode
-        && isActivityOwnerMessage
-        && hasAnchoredActivitySegments
-        && Boolean(toggleActivityGroup);
-
-    // A message that asked a question is blocked until the user answers — it
-    // never reaches finish === 'stop', so the normal "defer text until final
-    // output" rule would hide the context the model produced before the
-    // question indefinitely (OPE-199). Render such messages' text inline,
-    // matching OpenCode's display.
-    const hasQuestionTool = React.useMemo(() => {
-        return toolParts.some((toolPart) => isQuestionTool(toolPart.tool));
-    }, [toolParts]);
-
-    const shouldDeferSortedInlineText = isSortedRenderMode && !hasStopFinish && !hasQuestionTool;
     const showErrorMessage = Boolean(errorMessage);
     const isPeekSurface = chatSurfaceMode === 'peek';
     const shouldShowMessageActions = hasCopyableText && !isPeekSurface;
     const shouldShowTurnFooter = isLastAssistantInTurn && hasTextContent && (hasStopFinish || Boolean(errorMessage)) && !isPeekSurface;
-    const shouldRenderActionsInActivity = isSortedRenderMode;
-    const shouldShowStandaloneMessageActions = showSplitAssistantMessageActions && shouldShowMessageActions && !shouldShowTurnFooter && !shouldRenderActionsInActivity;
+    const shouldShowStandaloneMessageActions = showSplitAssistantMessageActions && shouldShowMessageActions && !shouldShowTurnFooter;
 
     const messageActionButtons = React.useMemo(() => (
         <AssistantMessageActionButtons
@@ -1772,47 +1646,8 @@ const AssistantMessageBody = React.memo(({
         />
     ), [assistantPlanText, extraActions, hasCopyableText, isTouchContext, messageId, onCopyLink, onCopyMessage, reviewTransferAction, shareMessageAsImage]);
 
-    // The turn footer appends its own buttons (fork, multi-run) after this
-    // group, so extension actions are rendered there separately, last.
+    // The turn footer copies the whole turn when the turn has more than this message.
     const onCopyFooter = onCopyTurn ?? onCopyMessage;
-    const footerMessageActionButtons = React.useMemo(() => (
-        <AssistantMessageActionButtons
-            hasCopyableText={hasCopyableText}
-            isTouchContext={isTouchContext}
-            onCopyMessage={onCopyFooter}
-            onCopyLink={onCopyLink}
-            onShareImage={shareTurnAsImage}
-            ttsText={assistantPlanText}
-            ttsReadingKey={messageId}
-            reviewTransferAction={reviewTransferAction}
-        />
-    ), [assistantPlanText, hasCopyableText, isTouchContext, messageId, onCopyFooter, onCopyLink, reviewTransferAction, shareTurnAsImage]);
-
-    const renderJustificationActions = React.useCallback((activity: NonNullable<TurnGroupingContext['activityParts']>[number]) => {
-        if (!showSplitAssistantMessageActions || !isSortedRenderMode) {
-            return null;
-        }
-
-        const text = extractTextContent(activity.part).trim();
-        if (!text) {
-            return null;
-        }
-
-        const copyJustificationText = async () => {
-            const result = await copyTextToClipboard(text);
-            return result.ok;
-        };
-
-        return (
-            <AssistantMessageActionButtons
-                hasCopyableText={true}
-                isTouchContext={isTouchContext}
-                onCopyMessage={copyJustificationText}
-                onShareImage={shareMessageAsImage}
-                ttsText={text}
-            />
-        );
-    }, [isSortedRenderMode, isTouchContext, shareMessageAsImage, showSplitAssistantMessageActions]);
 
     const lastRenderableTextPartIndex = React.useMemo(() => {
         if (!shouldShowStandaloneMessageActions) {
@@ -1825,18 +1660,11 @@ const AssistantMessageBody = React.memo(({
             if (!part || part.type !== 'text') {
                 continue;
             }
-            if (shouldDeferSortedInlineText) {
-                continue;
-            }
-            const activity = activityByPart.get(part);
-            if (activity?.kind === 'justification') {
-                continue;
-            }
             lastIndex = index;
         }
 
         return lastIndex;
-    }, [activityByPart, shouldDeferSortedInlineText, shouldShowStandaloneMessageActions, visibleParts]);
+    }, [shouldShowStandaloneMessageActions, visibleParts]);
 
     const shouldRenderStandaloneActionsAfterContent = shouldShowStandaloneMessageActions && lastRenderableTextPartIndex < 0;
 
@@ -1844,9 +1672,9 @@ const AssistantMessageBody = React.memo(({
         const answerRendered: React.ReactNode[] = [];
         const activityRendered: React.ReactNode[] = [];
         let rendered = answerRendered;
-        const splitLiveActivity = !isSortedRenderMode && liveFinalActivity?.messageId === messageId && hasStopFinish;
+        const splitLiveActivity = liveFinalActivity?.messageId === messageId && hasStopFinish;
         let hasRenderedAnswerText = false;
-        const isFinalLiveAnswer = chatRenderMode === 'live' && isLastAssistantInTurn && hasStopFinish;
+        const isFinalLiveAnswer = isLastAssistantInTurn && hasStopFinish;
         const hasEarlierVisibleActivity = isFinalLiveAnswer && Boolean(turnGroupingContext?.activityParts?.some((activity) => {
             if (activity.messageId === messageId) {
                 return false;
@@ -1854,79 +1682,8 @@ const AssistantMessageBody = React.memo(({
             if (activity.part.type === 'tool') {
                 return shouldShowTool(activity.part);
             }
-            return (activity.kind !== 'reasoning' || showReasoningTraces) && !isEmptyTextPart(activity.part);
+            return showReasoningTraces && !isEmptyTextPart(activity.part);
         }));
-
-        const renderSegmentBlock = (segment: TurnActivityGroup): React.ReactNode | null => {
-            if (!shouldRenderActivityGroup || !toggleActivityGroup) {
-                return null;
-            }
-            const visibleSegmentParts = showReasoningTraces
-                ? segment.parts
-                : segment.parts.filter((activity) => activity.kind !== 'reasoning');
-            if (visibleSegmentParts.length === 0) {
-                return null;
-            }
-            return (
-                <div key={`progressive-group-${segment.id}`} className="mb-3">
-                    <TurnActivity
-                        parts={visibleSegmentParts}
-                        isExpanded={turnGroupingContext?.isGroupExpanded === true}
-                        collapsedPreviewCount={collapsedPreviewCount}
-                        onToggle={toggleActivityGroup}
-                        isMobile={isMobile}
-                        expandedTools={expandedTools}
-                        onToggleTool={onToggleTool}
-                        onShowPopup={onShowPopup}
-                        streamPhase={effectiveStreamPhase}
-                        showHeader={true}
-                        animateRows={animateActivityRows}
-                        animatedToolIds={animatedToolIdsLookup}
-                        diffStats={turnGroupingContext?.diffStats}
-                        renderJustificationActions={renderJustificationActions}
-                    />
-                </div>
-            );
-        };
-
-        // Segments that follow a standalone tool of THIS message render right
-        // after that tool's row so e.g. an Agent Task sits chronologically
-        // between the activity before it and the activity after it.
-        const localToolPartIds = new Set<string>();
-        visibleParts.forEach((part, partIndex) => {
-            if (part.type === 'tool') {
-                localToolPartIds.add(part.id ?? `${messageId}-part-${partIndex}-${part.type}`);
-            }
-        });
-        const segmentsAfterLocalTool = new Map<string, TurnActivityGroup[]>();
-        if (shouldRenderActivityGroup && toggleActivityGroup) {
-            activityGroupSegmentsForMessage.forEach((segment) => {
-                if (segment.afterToolPartId && localToolPartIds.has(segment.afterToolPartId)) {
-                    const list = segmentsAfterLocalTool.get(segment.afterToolPartId) ?? [];
-                    list.push(segment);
-                    segmentsAfterLocalTool.set(segment.afterToolPartId, list);
-                    return;
-                }
-                const block = renderSegmentBlock(segment);
-                if (block) {
-                    rendered.push(block);
-                }
-            });
-        }
-
-        const flushSegmentsAfterTool = (toolPartId: string) => {
-            const segments = segmentsAfterLocalTool.get(toolPartId);
-            if (!segments) {
-                return;
-            }
-            segmentsAfterLocalTool.delete(toolPartId);
-            segments.forEach((segment) => {
-                const block = renderSegmentBlock(segment);
-                if (block) {
-                    rendered.push(block);
-                }
-            });
-        };
 
         // Flat rendering: iterate parts in natural order.
         // Group consecutive static tools (read, grep, glob, etc.) into compact rows.
@@ -1938,15 +1695,6 @@ const AssistantMessageBody = React.memo(({
             rendered = splitLiveActivity && part.type !== 'text' ? activityRendered : answerRendered;
 
             if (part.type === 'text') {
-                const activity = activityByPart.get(part);
-                if (shouldDeferSortedInlineText) {
-                    i += 1;
-                    continue;
-                }
-                if (activity?.kind === 'justification') {
-                    i += 1;
-                    continue;
-                }
                 if (isFinalLiveAnswer && !hasRenderedAnswerText && (rendered.length > 0 || activityRendered.length > 0 || hasEarlierVisibleActivity || turnGroupingContext?.earlierAssistantText)) {
                     rendered.push(
                         <div
@@ -1964,7 +1712,6 @@ const AssistantMessageBody = React.memo(({
                             sessionId={sessionId}
                             messageId={messageId}
                             streamPhase={effectiveStreamPhase}
-                            chatRenderMode={chatRenderMode}
                             onShowPopup={onShowPopup}
                         />
                     </div>
@@ -1983,11 +1730,6 @@ const AssistantMessageBody = React.memo(({
             }
 
             if (part.type === 'reasoning') {
-                const activity = activityByPart.get(part);
-                if (activity?.kind === 'reasoning') {
-                    i += 1;
-                    continue;
-                }
                 if (showReasoningTraces) {
                     if (!collapsibleThinkingBlocks) {
                         // Non-collapsible mode: render thinking blocks as plain text inline.
@@ -1998,7 +1740,6 @@ const AssistantMessageBody = React.memo(({
                                 sessionId={sessionId}
                                 messageId={messageId}
                                 streamPhase={effectiveStreamPhase}
-                                chatRenderMode={chatRenderMode}
                                 onShowPopup={onShowPopup}
                             />
                         );
@@ -2021,23 +1762,8 @@ const AssistantMessageBody = React.memo(({
             if (part.type === 'tool') {
                 const toolPart = part as ToolPartType;
                 const toolName = toolPart.tool?.toLowerCase() ?? '';
-                const toolPartId = toolPart.id ?? `${messageId}-part-${i}-${part.type}`;
-
-                if (isSortedRenderMode && !isActivityOwnerMessage) {
-                    flushSegmentsAfterTool(toolPartId);
-                    i += 1;
-                    continue;
-                }
-
-                const activity = activityByPart.get(part);
-                if (activity?.kind === 'tool' && !isStandaloneTool(toolName)) {
-                    flushSegmentsAfterTool(toolPartId);
-                    i += 1;
-                    continue;
-                }
 
                 if (!shouldShowTool(toolPart)) {
-                    flushSegmentsAfterTool(toolPartId);
                     i++;
                     continue;
                 }
@@ -2059,7 +1785,6 @@ const AssistantMessageBody = React.memo(({
                             </ToolRevealOnMount>
                         </FadeInOnReveal>
                     );
-                    flushSegmentsAfterTool(toolPartId);
                     i++;
                     continue;
                 }
@@ -2085,7 +1810,6 @@ const AssistantMessageBody = React.memo(({
                         </ToolRevealOnMount>
                     </FadeInOnReveal>
                 );
-                flushSegmentsAfterTool(toolPartId);
                 i++;
                 continue;
             }
@@ -2093,17 +1817,6 @@ const AssistantMessageBody = React.memo(({
             // Unknown part type — skip
             i++;
         }
-
-        // Any segments whose anchor tool never got flushed (filtered parts,
-        // unexpected ordering) must still render rather than disappear.
-        segmentsAfterLocalTool.forEach((segments) => {
-            segments.forEach((segment) => {
-                const block = renderSegmentBlock(segment);
-                if (block) {
-                    rendered.push(block);
-                }
-            });
-        });
 
         if (splitLiveActivity && liveFinalActivity) {
             return [
@@ -2116,35 +1829,24 @@ const AssistantMessageBody = React.memo(({
         }
         return answerRendered;
     }, [
-        activityByPart,
-        activityGroupSegmentsForMessage,
         alwaysShowMessageActions,
         animatedToolIdsLookup,
-        animateActivityRows,
-        chatRenderMode,
         collapsibleThinkingBlocks,
-        collapsedPreviewCount,
         expandedTools,
         isMobile,
-        isActivityOwnerMessage,
-        isSortedRenderMode,
         liveFinalActivity,
         isLastAssistantInTurn,
         hasStopFinish,
         lastRenderableTextPartIndex,
         messageId,
         messageActionButtons,
-        renderJustificationActions,
         sessionId,
         onShowPopup,
         onToggleTool,
-        shouldRenderActivityGroup,
         shouldShowStandaloneMessageActions,
         shouldShowTool,
         effectiveStreamPhase,
         showReasoningTraces,
-        shouldDeferSortedInlineText,
-        toggleActivityGroup,
         turnGroupingContext,
         visibleParts,
     ]);
@@ -2181,13 +1883,15 @@ const AssistantMessageBody = React.memo(({
     useFactsFit(footerFactsRef);
     const { isPlaying: isFooterTTSPlaying, play: playFooterTTS, stop: stopFooterTTS } = useMessageTTS(messageId);
     const showMessageTTSButtons = useConfigStore((state) => state.showMessageTTSButtons);
-    const canOpenMessagePreview = !isMiniChatSurface && !isMobile && !isVSCode;
 
+    // The pointer row shows copy, pin and the fork menu as buttons and keeps the
+    // rest behind "more"; `onPointerRow` marks the ones the row already shows.
     const footerSheetActions = React.useMemo(() => {
-        const actions: Array<{ id: string; label: string; icon: React.ReactNode; disabled?: boolean; onSelect: () => void }> = [];
+        const actions: Array<{ id: string; label: string; icon: React.ReactNode; disabled?: boolean; onPointerRow?: true; onSelect: () => void }> = [];
         if (onCopyFooter) {
             actions.push({
                 id: 'copy',
+                onPointerRow: true,
                 label: t('chat.messageBody.actions.copyAnswer'),
                 icon: <Icon name="file-copy" className="h-4 w-4" />,
                 disabled: !hasCopyableText,
@@ -2253,6 +1957,7 @@ const AssistantMessageBody = React.memo(({
         if (onToggleContextPin && hasCopyableText) {
             actions.push({
                 id: 'pin-context',
+                onPointerRow: true,
                 label: t(contextPinned ? 'chat.messageBody.actions.unpinContext' : 'chat.messageBody.actions.pinContext'),
                 icon: <Icon name={contextPinned ? 'pushpin-2-fill' : 'pushpin-2'} className="h-4 w-4" />,
                 disabled: contextPinPending,
@@ -2262,12 +1967,14 @@ const AssistantMessageBody = React.memo(({
         if (!isMiniChatSurface && !isReviewSessionView) {
             actions.push({
                 id: 'fork-from-here',
+                onPointerRow: true,
                 label: t('chat.messageBody.actions.fork'),
                 icon: <Icon name="git-branch" className="h-3.5 w-3.5" />,
                 onSelect: handleForkFromHere,
             });
             actions.push({
                 id: 'fork',
+                onPointerRow: true,
                 label: t('chat.messageBody.actions.startNewSession'),
                 icon: <Icon name="chat-new" className="h-3.5 w-3.5" />,
                 onSelect: () => { handleForkClick(); },
@@ -2281,75 +1988,31 @@ const AssistantMessageBody = React.memo(({
         return actions;
     }, [assistantPlanText, canUseProjectPlanActions, contextPinPending, contextPinned, currentProjectRef, extraActions, handleForkClick, handleForkFromHere, handleSaveAsPlanClick, hasCopyableText, isFooterTTSPlaying, isMiniChatSurface, isReviewSessionView, onCopyFooter, onCopyLink, onToggleContextPin, playFooterTTS, reviewTransferAction, shareTurnAsImage, showMessageTTSButtons, stopFooterTTS, t]);
 
+    const footerMenuActions = footerSheetActions.filter((action) => !action.onPointerRow);
+
     const finalTurnActionButtons = (
         <>
-            {canOpenMessagePreview && messagePreviewUrl ? (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
-                            aria-label={t('chat.messageBody.actions.openPreviewAria')}
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={() => {
-                                const directory = effectiveDirectory
-                                    ?? (currentSessionId ? getDirectoryForSession(currentSessionId) : null);
-                                if (!directory) {
-                                    return;
-                                }
-                                openContextPreview(directory, messagePreviewUrl);
-                            }}
-                        >
-                            <Icon name="global" className="h-3 w-3" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.openPreview')}</TooltipContent>
-                </Tooltip>
+            {onCopyFooter ? (
+                <AssistantCopyButton hasCopyableText={hasCopyableText} isTouchContext={isTouchContext} onCopyMessage={onCopyFooter} />
             ) : null}
-            {canUseProjectPlanActions && !isReviewSessionView ? (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            disabled={!hasCopyableText || !currentProjectRef}
-                            className={cn(
-                                'h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring',
-                                (!hasCopyableText || !currentProjectRef) && 'opacity-50'
-                            )}
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={handleSaveAsPlanClick}
-                        >
-                            <Icon name="booklet" className="h-3 w-3" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.saveAsPlan')}</TooltipContent>
-                </Tooltip>
-            ) : null}
-            {onToggleContextPin && hasCopyableText ? (
+            {/* Reading starts from the "more" menu; stopping it should not mean
+                hunting for it there again. */}
+            {isFooterTTSPlaying ? (
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className={cn(
-                                'h-6 w-6 bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring',
-                                contextPinned ? 'text-[color:var(--status-info)]' : 'text-muted-foreground',
-                            )}
-                            disabled={contextPinPending}
-                            aria-pressed={contextPinned}
-                            aria-label={t(contextPinned ? 'chat.messageBody.actions.unpinContext' : 'chat.messageBody.actions.pinContext')}
+                            className="h-6 w-6 text-[var(--primary-text)] bg-transparent hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={t('chat.messageBody.tts.stopSpeaking')}
                             onPointerDown={(event) => event.stopPropagation()}
-                            onClick={(event) => { event.stopPropagation(); onToggleContextPin(); }}
+                            onClick={(event) => { event.stopPropagation(); stopFooterTTS(); }}
                         >
-                            <Icon name={contextPinned ? 'pushpin-2-fill' : 'pushpin-2'} className="h-3 w-3" />
+                            <Icon name="volume-up" className="h-3 w-3 animate-pulse" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>{t(contextPinned ? 'chat.messageBody.actions.unpinContext' : 'chat.messageBody.actions.pinContext')}</TooltipContent>
+                    <TooltipContent sideOffset={6}>{t('chat.messageBody.tts.stopSpeaking')}</TooltipContent>
                 </Tooltip>
             ) : null}
             {!isMiniChatSurface && !isReviewSessionView ? (
@@ -2392,6 +2055,63 @@ const AssistantMessageBody = React.memo(({
                                 {t('chat.messageBody.actions.startNewMultiRun')}
                             </DropdownMenuItem>
                         ) : null}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ) : null}
+            {onToggleContextPin && hasCopyableText ? (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                                'h-6 w-6 bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring',
+                                contextPinned ? 'text-[color:var(--status-info)]' : 'text-muted-foreground',
+                            )}
+                            disabled={contextPinPending}
+                            aria-pressed={contextPinned}
+                            aria-label={t(contextPinned ? 'chat.messageBody.actions.unpinContext' : 'chat.messageBody.actions.pinContext')}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={(event) => { event.stopPropagation(); onToggleContextPin(); }}
+                        >
+                            <Icon name={contextPinned ? 'pushpin-2-fill' : 'pushpin-2'} className="h-3 w-3" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>{t(contextPinned ? 'chat.messageBody.actions.unpinContext' : 'chat.messageBody.actions.pinContext')}</TooltipContent>
+                </Tooltip>
+            ) : null}
+            {footerMenuActions.length > 0 ? (
+                <DropdownMenu>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t('chat.messageBody.actions.moreActions')}
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                >
+                                    <Icon name="more" className="h-3 w-3" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.moreActions')}</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" onPointerDown={(event) => event.stopPropagation()}>
+                        {footerMenuActions.map((action) => (
+                            <DropdownMenuItem
+                                key={action.id}
+                                className="typography-meta"
+                                disabled={action.disabled}
+                                onSelect={() => action.onSelect()}
+                            >
+                                <span className="flex size-4 shrink-0 items-center justify-center">{action.icon}</span>
+                                {action.label}
+                            </DropdownMenuItem>
+                        ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
             ) : null}
@@ -2568,9 +2288,7 @@ const AssistantMessageBody = React.memo(({
                                 className="flex shrink-0 items-center gap-1.5 pointer-events-none opacity-0 transition-opacity duration-150 focus-within:pointer-events-auto focus-within:opacity-100 group-hover/message:pointer-events-auto group-hover/message:opacity-100 [&_button]:!h-[26px] [&_button]:!w-[26px] [&_svg]:!size-3.5"
                                 data-message-action-group="true"
                             >
-                                {footerMessageActionButtons}
                                 {finalTurnActionButtons}
-                                {chatSurfaceMode !== 'mini-chat' ? <MessageExtraActionButtons actions={extraActions} /> : null}
                             </div>
                         )}
                       </div>
@@ -2644,7 +2362,6 @@ const MessageBody = React.memo(({ isUser, ...props }: MessageBodyProps) => {
                 hasTextContent={props.hasTextContent}
                 onCopyMessage={props.onCopyMessage}
                 copiedMessage={props.copiedMessage}
-                onCopyLink={props.onCopyLink}
                 onShowPopup={props.onShowPopup}
                 agentMention={props.agentMention}
                 onRevert={props.onRevert}
