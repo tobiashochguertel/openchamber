@@ -84,6 +84,20 @@ describe('visibility by rules', () => {
     expect(isDevServerVisibleByRules(node, ['3000'])).toBe(true);
   });
 
+  test('the origin fields resolve: source, project, commandLine', () => {
+    const system = { port: 5000, url: 'u', command: 'ControlCenter', announced: false, source: 'system' };
+    const app = { port: 9123, url: 'u', command: 'Python', announced: false, source: 'process', project: 'pake-gmail', commandLine: '/x/pake-gmail/serve.py' };
+    expect(isDevServerVisibleByRules(system, ['source=system'])).toBe(true);
+    expect(isDevServerVisibleByRules(system, ['!source=system'])).toBe(false);
+    expect(isDevServerVisibleByRules(app, ['!source=system'])).toBe(true);
+    expect(isDevServerVisibleByRules(app, ['project~pake'])).toBe(true);
+    expect(isDevServerVisibleByRules(app, ['commandLine~serve.py'])).toBe(true);
+    expect(isDevServerVisibleByRules(system, ['project'])).toBe(false);
+    // a bare word fuzzy-matches project and commandLine too
+    expect(isDevServerVisibleByRules(app, ['pake-gmail'])).toBe(true);
+    expect(isDevServerVisibleByRules(system, ['pake-gmail'])).toBe(false);
+  });
+
   test('invalid rules are inert', () => {
     expect(isDevServerVisibleByRules(hedgedoc, ['docker.name~', 'docker'])).toBe(true);
   });

@@ -63,6 +63,10 @@ const inspectFields = (candidate: DevServerCandidate): InspectField[] => {
     { field: 'url', value: candidate.url },
   ];
   if (candidate.command) fields.push({ field: 'command', value: candidate.command });
+  if (candidate.source) fields.push({ field: 'source', value: candidate.source });
+  if (candidate.project) fields.push({ field: 'project', value: candidate.project });
+  if (candidate.commandLine) fields.push({ field: 'commandLine', value: candidate.commandLine });
+  if (candidate.cwd) fields.push({ field: 'cwd', value: candidate.cwd });
   try {
     fields.push({ field: 'host', value: new URL(candidate.url).hostname });
   } catch {

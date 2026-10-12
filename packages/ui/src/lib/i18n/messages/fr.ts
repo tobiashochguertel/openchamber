@@ -3771,7 +3771,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Filtres',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Masqués',
   'contextPanel.browser.devServers.settings.namesTab': 'Noms',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Une règle par ligne ; un ! initial masque les correspondances. Termes : champ=valeur, champ~partie, champ!=valeur ou un champ seul pour la présence. Champs : port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'Une règle par ligne ; un ! initial masque les correspondances. Termes : champ=valeur, champ~partie, champ!=valeur ou un champ seul pour la présence. Champs : port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} règles non valides',
   'contextPanel.browser.devServers.settings.matchCount': '{visible} sur {total} affichés',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} masqués',

@@ -3773,7 +3773,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Filtros',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Ocultos',
   'contextPanel.browser.devServers.settings.namesTab': 'Nombres',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Una regla por línea; un ! inicial oculta las coincidencias. Términos: campo=valor, campo~parte, campo!=valor o un campo solo por presencia. Campos: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'Una regla por línea; un ! inicial oculta las coincidencias. Términos: campo=valor, campo~parte, campo!=valor o un campo solo por presencia. Campos: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} reglas no válidas',
   'contextPanel.browser.devServers.settings.matchCount': '{visible} de {total} mostrados',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} ocultos',

@@ -3772,7 +3772,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.filtersTab': '篩選器',
   'contextPanel.browser.devServers.settings.hiddenTab': '已隱藏',
   'contextPanel.browser.devServers.settings.namesTab': '名稱',
-  'contextPanel.browser.devServers.settings.filtersHint': '每行一條規則；開頭的 ! 隱藏相符項目。項：field=value、field~part、field!=value 或單獨欄位表示存在。欄位：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port。',
+  'contextPanel.browser.devServers.settings.filtersHint': '每行一條規則；開頭的 ! 隱藏相符項目。項：field=value、field~part、field!=value 或單獨欄位表示存在。欄位：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd。',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} 條無效規則',
   'contextPanel.browser.devServers.settings.matchCount': '顯示 {visible}/{total}',
   'contextPanel.browser.devServers.settings.hiddenCount': '已隱藏 {count} 個',

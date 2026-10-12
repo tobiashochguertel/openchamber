@@ -3777,7 +3777,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Filtry',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Ukryte',
   'contextPanel.browser.devServers.settings.namesTab': 'Nazwy',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Jedna reguła na wiersz; początkowe ! ukrywa dopasowania. Termy: pole=wartość, pole~część, pole!=wartość lub samo pole dla obecności. Pola: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'Jedna reguła na wiersz; początkowe ! ukrywa dopasowania. Termy: pole=wartość, pole~część, pole!=wartość lub samo pole dla obecności. Pola: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} nieprawidłowych reguł',
   'contextPanel.browser.devServers.settings.matchCount': 'Wyświetlono {visible} z {total}',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} ukrytych',

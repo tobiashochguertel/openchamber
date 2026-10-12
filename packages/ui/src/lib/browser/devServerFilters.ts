@@ -10,11 +10,15 @@
  *   docker.image=nginx:latest   image equals
  *   command!=ssh                owning process is not ssh
  *   forward.host~internal       ssh -L target host contains
+ *   source=system               listener owned by an OS binary
+ *   project=pake-gmail          working directory / compose project
+ *   commandLine~serve.py        matches the full process argv
  *   !port<1024                  hide privileged ports
  *
  * Fields: port, command, url, host, announced, docker, docker.name,
  * docker.image, docker.id, docker.label.<key>, forward, forward.host,
- * forward.port. A bare word matches command, url and docker.name.
+ * forward.port, source, project, commandLine, cwd. A bare word matches
+ * command, url, docker.name and project.
  */
 import React from 'react';
 import { z } from 'zod';
@@ -90,6 +94,10 @@ export type FilterableDevServer = {
   readonly announced: boolean;
   readonly docker?: DevServerDockerInfo;
   readonly forward?: DevServerForwardInfo;
+  readonly source?: string;
+  readonly project?: string;
+  readonly commandLine?: string;
+  readonly cwd?: string;
 };
 
 export type FilterTerm = {
@@ -129,10 +137,10 @@ const tokenize = (line: string): string[] | null => {
 };
 
 const TERM_PATTERN = /^([a-zA-Z][\w.]*)(!~|!=|=|~|>|<)?(.*)$/;
-const FUZZY_FIELDS = ['command', 'url', 'docker.name'] as const;
+const FUZZY_FIELDS = ['command', 'url', 'docker.name', 'project', 'commandLine'] as const;
 
 /** Field names that carry an op; anything else is a fuzzy bare-word term. */
-const KNOWN_FIELD = /^(port|command|url|host|announced|docker|docker\.name|docker\.image|docker\.id|docker\.label\.[\w.-]+|forward|forward\.host|forward\.port)$/;
+const KNOWN_FIELD = /^(port|command|url|host|announced|source|project|commandLine|cwd|docker|docker\.name|docker\.image|docker\.id|docker\.label\.[\w.-]+|forward|forward\.host|forward\.port)$/;
 
 export const parseDevServerFilterRule = (line: string): FilterRule => {
   const trimmed = line.trim();
@@ -175,6 +183,10 @@ const resolveField = (server: FilterableDevServer, field: string): ResolvedValue
       catch { return { exists: false }; }
     }
     case 'announced': return { exists: server.announced };
+    case 'source': return { exists: server.source !== undefined, value: server.source };
+    case 'project': return { exists: server.project !== undefined, value: server.project };
+    case 'commandLine': return { exists: server.commandLine !== undefined, value: server.commandLine };
+    case 'cwd': return { exists: server.cwd !== undefined, value: server.cwd };
     case 'docker': return { exists: server.docker !== undefined };
     case 'docker.name': return { exists: server.docker !== undefined, value: server.docker?.name };
     case 'docker.image': return { exists: server.docker !== undefined, value: server.docker?.image };

@@ -3770,7 +3770,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Filter',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Ausgeblendet',
   'contextPanel.browser.devServers.settings.namesTab': 'Namen',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Eine Regel pro Zeile; ein führendes ! blendet Treffer aus. Terme: feld=wert, feld~teil, feld!=wert oder ein Feld allein für Vorhandensein. Felder: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'Eine Regel pro Zeile; ein führendes ! blendet Treffer aus. Terme: feld=wert, feld~teil, feld!=wert oder ein Feld allein für Vorhandensein. Felder: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} ungültige Regeln',
   'contextPanel.browser.devServers.settings.matchCount': '{visible} von {total} angezeigt',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} ausgeblendet',

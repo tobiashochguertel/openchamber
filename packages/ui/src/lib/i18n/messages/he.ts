@@ -3729,7 +3729,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.filtersTab': 'מסננים',
   'contextPanel.browser.devServers.settings.hiddenTab': 'מוסתרים',
   'contextPanel.browser.devServers.settings.namesTab': 'שמות',
-  'contextPanel.browser.devServers.settings.filtersHint': 'כלל אחד בכל שורה; ! בהתחלה מסתיר התאמות. מונחים: field=value, field~part, field!=value או שדה לבדו לנוכחות. שדות: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'כלל אחד בכל שורה; ! בהתחלה מסתיר התאמות. מונחים: field=value, field~part, field!=value או שדה לבדו לנוכחות. שדות: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} כללים לא חוקיים',
   'contextPanel.browser.devServers.settings.matchCount': '{visible} מתוך {total} מוצגים',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} מוסתרים',

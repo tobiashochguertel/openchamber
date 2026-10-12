@@ -3773,7 +3773,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.filtersTab': '过滤器',
   'contextPanel.browser.devServers.settings.hiddenTab': '已隐藏',
   'contextPanel.browser.devServers.settings.namesTab': '名称',
-  'contextPanel.browser.devServers.settings.filtersHint': '每行一条规则；开头的 ! 隐藏匹配项。项：field=value、field~part、field!=value 或单独字段表示存在。字段：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port。',
+  'contextPanel.browser.devServers.settings.filtersHint': '每行一条规则；开头的 ! 隐藏匹配项。项：field=value、field~part、field!=value 或单独字段表示存在。字段：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd。',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} 条无效规则',
   'contextPanel.browser.devServers.settings.matchCount': '显示 {visible}/{total}',
   'contextPanel.browser.devServers.settings.hiddenCount': '已隐藏 {count} 个',

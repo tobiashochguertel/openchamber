@@ -3772,7 +3772,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Filters',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Verborgen',
   'contextPanel.browser.devServers.settings.namesTab': 'Namen',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Eén regel per regel; een leidende ! verbergt treffers. Termen: veld=waarde, veld~deel, veld!=waarde of een veld alleen voor aanwezigheid. Velden: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'Eén regel per regel; een leidende ! verbergt treffers. Termen: veld=waarde, veld~deel, veld!=waarde of een veld alleen voor aanwezigheid. Velden: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} ongeldige regels',
   'contextPanel.browser.devServers.settings.matchCount': '{visible} van {total} getoond',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} verborgen',

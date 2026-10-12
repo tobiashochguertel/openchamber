@@ -1,3 +1,4 @@
+import os from 'node:os';
 /**
  * Best-effort context for discovered dev servers.
  *
@@ -120,45 +121,107 @@ export const collectDockerPorts = async (runCommand) => {
 };
 
 /**
- * Local forward port → target for every ssh-like listener owner.
+ * pid → full argv for a set of pids, one `ps` call.
  * @param {(command: string, args: string[], timeoutMs: number) => Promise<string|null>} runCommand
  * @param {number[]} pids
+ * @returns {Promise<Map<number, string>>}
  */
-export const collectSshForwards = async (runCommand, pids) => {
-  const forwards = new Map();
-  if (pids.length === 0) return forwards;
+export const collectProcessArgs = async (runCommand, pids) => {
+  const args = new Map();
+  if (pids.length === 0) return args;
   const output = await runCommand('ps', ['-p', pids.join(','), '-o', 'pid=,args='], PS_TIMEOUT_MS);
-  if (output === null) return forwards;
+  if (output === null) return args;
   for (const line of output.split('\n')) {
     const match = line.trim().match(/^(\d+)\s+(.*)$/);
-    if (!match) continue;
-    for (const [localPort, target] of parseSshForwards(match[2])) {
+    if (match) args.set(Number(match[1]), match[2]);
+  }
+  return args;
+};
+
+/**
+ * pid → working directory, one `lsof` call across all pids.
+ * @param {(command: string, args: string[], timeoutMs: number) => Promise<string|null>} runCommand
+ * @param {number[]} pids
+ * @returns {Promise<Map<number, string>>}
+ */
+export const collectProcessCwds = async (runCommand, pids) => {
+  const cwds = new Map();
+  if (pids.length === 0) return cwds;
+  const output = await runCommand(
+    'lsof', ['-a', '-d', 'cwd', '-F', 'pn', '-p', pids.join(',')], PS_TIMEOUT_MS,
+  );
+  if (output === null) return cwds;
+  let pid = null;
+  for (const line of output.split('\n')) {
+    if (line.startsWith('p')) pid = Number(line.slice(1));
+    else if (line.startsWith('n') && pid !== null) cwds.set(pid, line.slice(1));
+  }
+  return cwds;
+};
+
+/**
+ * Local forward port → target for every ssh-like listener owner.
+ * @param {Map<number, string>} processArgs
+ */
+export const collectSshForwards = (processArgs) => {
+  const forwards = new Map();
+  for (const args of processArgs.values()) {
+    for (const [localPort, target] of parseSshForwards(args)) {
       forwards.set(localPort, target);
     }
   }
   return forwards;
 };
 
+// Binaries that live under the OS trees — listening here is macOS plumbing,
+// not anything the user started.
+const SYSTEM_PATH_PATTERN = /^\/(System\/(Library|CoreServices)|usr\/(lib|sbin|libexec))\//;
+
+const sourceOf = ({ docker, forward, argv }) => {
+  if (docker) return 'docker';
+  if (forward) return 'forward';
+  if (argv && SYSTEM_PATH_PATTERN.test(argv)) return 'system';
+  return 'process';
+};
+
+// A project's name: the compose project for containers, the working directory
+// basename for processes. A bare root or the home dir carries no signal.
+const projectOf = ({ docker, cwd }) => {
+  if (docker) return docker.labels['com.docker.compose.project'] ?? null;
+  if (!cwd || cwd === '/' || cwd === os.homedir()) return null;
+  const base = cwd.replace(/\/+$/, '').split('/').pop();
+  return base || null;
+};
+
 /**
- * Attach `docker` / `forward` context to discovered servers.
+ * Attach `docker` / `forward` / `source` / `project` / `commandLine` / `cwd`
+ * context to discovered servers.
  * @param {Array<{ port: number, pid: number|null, command: string }>} servers
  * @param {{ runCommand: (command: string, args: string[], timeoutMs: number) => Promise<string|null> }} tools
  */
 export const enrichServers = async (servers, { runCommand }) => {
-  const dockerPorts = await collectDockerPorts(runCommand);
-  const sshPids = [
-    ...new Set(
-      servers
-        .filter((server) => server.command === 'ssh' && !dockerPorts.has(server.port) && server.pid !== null)
-        .map((server) => server.pid),
-    ),
-  ];
-  const forwards = await collectSshForwards(runCommand, sshPids);
+  const pids = [...new Set(servers.map((server) => server.pid).filter((pid) => pid !== null))];
+  const [dockerPorts, processArgs, processCwds] = await Promise.all([
+    collectDockerPorts(runCommand),
+    collectProcessArgs(runCommand, pids),
+    collectProcessCwds(runCommand, pids),
+  ]);
+  const forwards = collectSshForwards(processArgs);
   return servers.map((server) => {
     const docker = dockerPorts.get(server.port);
-    if (docker) return { ...server, docker };
-    const forward = forwards.get(server.port);
-    if (forward) return { ...server, forward };
-    return server;
+    const forward = docker ? null : forwards.get(server.port) ?? null;
+    const argv = server.pid === null ? null : processArgs.get(server.pid) ?? null;
+    const cwd = server.pid === null ? null : processCwds.get(server.pid) ?? null;
+    const enriched = {
+      ...server,
+      source: sourceOf({ docker, forward, argv }),
+      commandLine: argv ?? undefined,
+      cwd: cwd ?? undefined,
+    };
+    if (docker) enriched.docker = docker;
+    if (forward) enriched.forward = forward;
+    const project = projectOf({ docker, cwd });
+    if (project) enriched.project = project;
+    return enriched;
   });
 };
