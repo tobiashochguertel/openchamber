@@ -3770,7 +3770,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Filtreler',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Gizli',
   'contextPanel.browser.devServers.settings.namesTab': 'Adlar',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Her satırda bir kural; baştaki ! eşleşmeleri gizler. Terimler: alan=değer, alan~parça, alan!=değer ya da varlık için tek başına alan. Alanlar: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'Her satırda bir kural; baştaki ! eşleşmeleri gizler. Terimler: alan=değer, alan~parça, alan!=değer ya da varlık için tek başına alan. Alanlar: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} geçersiz kural',
   'contextPanel.browser.devServers.settings.matchCount': '{total} içinden {visible} gösteriliyor',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} gizli',

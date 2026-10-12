@@ -3729,7 +3729,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.filtersTab': 'عوامل التصفية',
   'contextPanel.browser.devServers.settings.hiddenTab': 'مخفي',
   'contextPanel.browser.devServers.settings.namesTab': 'الأسماء',
-  'contextPanel.browser.devServers.settings.filtersHint': 'قاعدة واحدة في كل سطر؛ وعلامة ! في البداية تُخفي المطابقات. المصطلحات: field=value، field~part، field!=value أو حقل وحده للوجود. الحقول: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'قاعدة واحدة في كل سطر؛ وعلامة ! في البداية تُخفي المطابقات. المصطلحات: field=value، field~part، field!=value أو حقل وحده للوجود. الحقول: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} قواعد غير صالحة',
   'contextPanel.browser.devServers.settings.matchCount': '{visible} من {total} معروضة',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} مخفي',

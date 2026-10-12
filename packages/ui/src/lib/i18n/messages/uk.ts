@@ -3773,7 +3773,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Фільтри',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Приховані',
   'contextPanel.browser.devServers.settings.namesTab': 'Назви',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Одне правило на рядок; початковий ! приховує збіги. Терми: поле=значення, поле~частина, поле!=значення або саме поле для наявності. Поля: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'Одне правило на рядок; початковий ! приховує збіги. Терми: поле=значення, поле~частина, поле!=значення або саме поле для наявності. Поля: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} недійсних правил',
   'contextPanel.browser.devServers.settings.matchCount': 'Показано {visible} з {total}',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} приховано',

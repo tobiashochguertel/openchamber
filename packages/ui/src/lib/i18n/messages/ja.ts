@@ -3772,7 +3772,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.filtersTab': 'フィルター',
   'contextPanel.browser.devServers.settings.hiddenTab': '非表示',
   'contextPanel.browser.devServers.settings.namesTab': '名前',
-  'contextPanel.browser.devServers.settings.filtersHint': '1行につき1ルール。先頭の ! は一致を非表示にします。項: field=value、field~part、field!=value、または存在を示すフィールド単体。フィールド: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': '1行につき1ルール。先頭の ! は一致を非表示にします。項: field=value、field~part、field!=value、または存在を示すフィールド単体。フィールド: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} 件の無効なルール',
   'contextPanel.browser.devServers.settings.matchCount': '{total} 件中 {visible} 件を表示',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} 件を非表示',

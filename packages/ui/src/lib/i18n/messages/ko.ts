@@ -3772,7 +3772,7 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.settings.filtersTab': '필터',
   'contextPanel.browser.devServers.settings.hiddenTab': '숨김',
   'contextPanel.browser.devServers.settings.namesTab': '이름',
-  'contextPanel.browser.devServers.settings.filtersHint': '줄당 하나의 규칙. 앞의 !는 일치 항목을 숨깁니다. 항: field=value, field~part, field!=value 또는 존재 여부를 위한 필드 단독. 필드: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': '줄당 하나의 규칙. 앞의 !는 일치 항목을 숨깁니다. 항: field=value, field~part, field!=value 또는 존재 여부를 위한 필드 단독. 필드: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '잘못된 규칙 {count}개',
   'contextPanel.browser.devServers.settings.matchCount': '{total}개 중 {visible}개 표시',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count}개 숨김',

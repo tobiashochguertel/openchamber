@@ -27,6 +27,14 @@ export type DiscoveredDevServer = {
   readonly docker?: DevServerDockerInfo;
   /** -L target this port forwards to, when the owner is an ssh process. */
   readonly forward?: DevServerForwardInfo;
+  /** Where this listener comes from: container, ssh forward, OS, or user process. */
+  readonly source?: 'docker' | 'forward' | 'system' | 'process';
+  /** Compose project or working-directory name, when it could be resolved. */
+  readonly project?: string;
+  /** Full argv of the owning process. */
+  readonly commandLine?: string;
+  /** Working directory of the owning process. */
+  readonly cwd?: string;
 };
 
 export type DevServerDiscovery =
@@ -102,16 +110,21 @@ export type DevServerCandidate = {
   readonly announced: boolean;
   readonly docker?: DevServerDockerInfo;
   readonly forward?: DevServerForwardInfo;
+  readonly source?: 'docker' | 'forward' | 'system' | 'process';
+  readonly project?: string;
+  readonly commandLine?: string;
+  readonly cwd?: string;
 };
 
 /**
  * What a row says under the address: the container that published the port,
- * the host a forward points at, the owning process, or the base path. A bare
- * `ssh` or `node` says less than any of these.
+ * the host a forward points at, the project a process belongs to, the owning
+ * process, or the base path. A bare `ssh` or `node` says less than any of these.
  */
 export const devServerContextLabel = (candidate: DevServerCandidate): string => {
   if (candidate.docker) return candidate.docker.name;
   if (candidate.forward) return `${candidate.forward.host}:${candidate.forward.port}`;
+  if (candidate.project) return candidate.project;
   return candidate.command || pathLabel(candidate.url);
 };
 
@@ -176,6 +189,10 @@ export const mergeDevServerCandidates = ({
         announced: announcedUrl !== undefined,
         docker: server.docker,
         forward: server.forward,
+        source: server.source,
+        project: server.project,
+        commandLine: server.commandLine,
+        cwd: server.cwd,
       };
     })
     .sort((left, right) => {

@@ -58,6 +58,7 @@ describe('enrichServers', () => {
   const runCommandFor = (responses) => async (command, args) => {
     if (command === 'docker') return responses.docker ?? null;
     if (command === 'ps') return responses.ps ?? null;
+    if (command === 'lsof') return responses.lsof ?? null;
     return null;
   };
 
@@ -68,19 +69,46 @@ describe('enrichServers', () => {
       { port: 3000, pid: 42, command: 'node', url: 'http://localhost:3000/' },
     ];
     const runCommand = runCommandFor({
-      docker: 'a1b2\thedgedoc\thedgedoc:1.10\t127.0.0.1:45583->3000/tcp\tcom.docker.compose.service=hedgedoc\n',
+      docker: 'a1b2\thedgedoc\thedgedoc:1.10\t127.0.0.1:45583->3000/tcp\tcom.docker.compose.project=hedgedoc,com.docker.compose.service=hedgedoc\n',
       ps: ' 7777 ssh -L 8080:app.internal:80 target\n',
     });
     const enriched = await enrichServers(servers, { runCommand });
     expect(enriched[0].docker?.name).toBe('hedgedoc');
+    expect(enriched[0].source).toBe('docker');
+    expect(enriched[0].project).toBe('hedgedoc');
     expect(enriched[1].forward).toEqual({ host: 'app.internal', port: 80 });
+    expect(enriched[1].source).toBe('forward');
     expect(enriched[2].docker).toBeUndefined();
     expect(enriched[2].forward).toBeUndefined();
+    expect(enriched[2].source).toBe('process');
+  });
+
+  test('classifies a process as system when its binary lives under /System', async () => {
+    const servers = [{ port: 5000, pid: 10, command: 'ControlCenter', url: 'http://localhost:5000/' }];
+    const runCommand = runCommandFor({
+      ps: ' 10 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter\n',
+    });
+    const enriched = await enrichServers(servers, { runCommand });
+    expect(enriched[0].source).toBe('system');
+    expect(enriched[0].commandLine).toContain('ControlCenter');
+    expect(enriched[0].project).toBeUndefined();
+  });
+
+  test('derives the project from the working directory', async () => {
+    const servers = [{ port: 9123, pid: 20, command: 'Python', url: 'http://localhost:9123/' }];
+    const runCommand = runCommandFor({
+      ps: ' 20 /usr/bin/python3 /x/serve.py --https\n',
+      lsof: 'p20\nn/home/u/work/dev/tools/pake-gmail\n',
+    });
+    const enriched = await enrichServers(servers, { runCommand });
+    expect(enriched[0].source).toBe('process');
+    expect(enriched[0].project).toBe('pake-gmail');
+    expect(enriched[0].cwd).toBe('/home/u/work/dev/tools/pake-gmail');
   });
 
   test('leaves servers untouched when docker is unavailable', async () => {
     const servers = [{ port: 3000, pid: 1, command: 'node', url: 'http://localhost:3000/' }];
     const enriched = await enrichServers(servers, { runCommand: runCommandFor({}) });
-    expect(enriched[0]).toEqual(servers[0]);
+    expect(enriched[0]).toEqual({ ...servers[0], source: 'process' });
   });
 });

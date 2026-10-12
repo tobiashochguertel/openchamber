@@ -3772,7 +3772,7 @@ export const dict = {
   'contextPanel.browser.devServers.settings.filtersTab': 'Filters',
   'contextPanel.browser.devServers.settings.hiddenTab': 'Hidden',
   'contextPanel.browser.devServers.settings.namesTab': 'Names',
-  'contextPanel.browser.devServers.settings.filtersHint': 'One rule per line; a leading ! hides matches. Terms: field=value, field~contains, field!=value, or a field alone for presence. Fields: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
+  'contextPanel.browser.devServers.settings.filtersHint': 'One rule per line; a leading ! hides matches. Terms: field=value, field~contains, field!=value, or a field alone for presence. Fields: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
   'contextPanel.browser.devServers.settings.invalidCount': '{count} invalid rules',
   'contextPanel.browser.devServers.settings.matchCount': '{visible} of {total} shown',
   'contextPanel.browser.devServers.settings.hiddenCount': '{count} hidden',
