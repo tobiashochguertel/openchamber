@@ -231,10 +231,10 @@ index 711eeb0ba..2d251225a 100644
      expect(mergeDevServerCandidates({ announced: [], discovered: null })).toEqual([]);
      expect(mergeDevServerCandidates({ announced: [], discovered: [] })).toEqual([]);
 diff --git a/packages/ui/src/lib/browser/devServers.ts b/packages/ui/src/lib/browser/devServers.ts
-index 949c8b4f2..3ae819e28 100644
+index 949c8b4f2..8304823b1 100644
 --- a/packages/ui/src/lib/browser/devServers.ts
 +++ b/packages/ui/src/lib/browser/devServers.ts
-@@ -7,10 +7,26 @@
+@@ -7,10 +7,34 @@
   */
  import { runtimeFetch } from '@/lib/runtime-fetch';
  
@@ -258,10 +258,18 @@ index 949c8b4f2..3ae819e28 100644
 +  readonly docker?: DevServerDockerInfo;
 +  /** -L target this port forwards to, when the owner is an ssh process. */
 +  readonly forward?: DevServerForwardInfo;
++  /** Where this listener comes from: container, ssh forward, OS, or user process. */
++  readonly source?: 'docker' | 'forward' | 'system' | 'process';
++  /** Compose project or working-directory name, when it could be resolved. */
++  readonly project?: string;
++  /** Full argv of the owning process. */
++  readonly commandLine?: string;
++  /** Working directory of the owning process. */
++  readonly cwd?: string;
  };
  
  export type DevServerDiscovery =
-@@ -77,11 +93,35 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
+@@ -77,11 +101,40 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
    }
  };
  
@@ -275,16 +283,21 @@ index 949c8b4f2..3ae819e28 100644
    readonly announced: boolean;
 +  readonly docker?: DevServerDockerInfo;
 +  readonly forward?: DevServerForwardInfo;
++  readonly source?: 'docker' | 'forward' | 'system' | 'process';
++  readonly project?: string;
++  readonly commandLine?: string;
++  readonly cwd?: string;
 +};
 +
 +/**
 + * What a row says under the address: the container that published the port,
-+ * the host a forward points at, the owning process, or the base path. A bare
-+ * `ssh` or `node` says less than any of these.
++ * the host a forward points at, the project a process belongs to, the owning
++ * process, or the base path. A bare `ssh` or `node` says less than any of these.
 + */
 +export const devServerContextLabel = (candidate: DevServerCandidate): string => {
 +  if (candidate.docker) return candidate.docker.name;
 +  if (candidate.forward) return `${candidate.forward.host}:${candidate.forward.port}`;
++  if (candidate.project) return candidate.project;
 +  return candidate.command || pathLabel(candidate.url);
 +};
 +
@@ -298,7 +311,7 @@ index 949c8b4f2..3ae819e28 100644
  };
  
  const portOf = (url: string): number | null => {
-@@ -122,7 +162,7 @@ export const mergeDevServerCandidates = ({
+@@ -122,7 +175,7 @@ export const mergeDevServerCandidates = ({
  
    if (!discovered) {
      return [...announcedByPort.entries()]
@@ -307,7 +320,7 @@ index 949c8b4f2..3ae819e28 100644
        .sort((left, right) => left.port - right.port);
    }
  
-@@ -132,7 +172,10 @@ export const mergeDevServerCandidates = ({
+@@ -132,7 +185,14 @@ export const mergeDevServerCandidates = ({
        return {
          url: announcedUrl ?? server.url,
          port: server.port,
@@ -315,6 +328,10 @@ index 949c8b4f2..3ae819e28 100644
          announced: announcedUrl !== undefined,
 +        docker: server.docker,
 +        forward: server.forward,
++        source: server.source,
++        project: server.project,
++        commandLine: server.commandLine,
++        cwd: server.cwd,
        };
      })
      .sort((left, right) => {
@@ -342,7 +359,7 @@ index 661fb9bf0..32447bd6e 100644
    listeners.add(listener);
    return () => { listeners.delete(listener); };
 diff --git a/packages/ui/src/lib/i18n/messages/ar.ts b/packages/ui/src/lib/i18n/messages/ar.ts
-index 449ba1275..ef4caf9bc 100644
+index 449ba1275..749da2934 100644
 --- a/packages/ui/src/lib/i18n/messages/ar.ts
 +++ b/packages/ui/src/lib/i18n/messages/ar.ts
 @@ -3718,6 +3718,33 @@ export const dict = {
@@ -360,7 +377,7 @@ index 449ba1275..ef4caf9bc 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'عوامل التصفية',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'مخفي',
 +  'contextPanel.browser.devServers.settings.namesTab': 'الأسماء',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'قاعدة واحدة في كل سطر؛ وعلامة ! في البداية تُخفي المطابقات. المصطلحات: field=value، field~part، field!=value أو حقل وحده للوجود. الحقول: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'قاعدة واحدة في كل سطر؛ وعلامة ! في البداية تُخفي المطابقات. المصطلحات: field=value، field~part، field!=value أو حقل وحده للوجود. الحقول: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} قواعد غير صالحة',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} من {total} معروضة',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} مخفي',
@@ -380,7 +397,7 @@ index 449ba1275..ef4caf9bc 100644
    'sessions.sidebar.header.displayMode.showChats': 'إظهار قسم المحادثات',
    'sessions.scheduledTasks.editor.useDefaults.label': 'استخدام الإعدادات الافتراضية للجلسة',
 diff --git a/packages/ui/src/lib/i18n/messages/de.ts b/packages/ui/src/lib/i18n/messages/de.ts
-index d5226c1cc..991c63c9a 100644
+index d5226c1cc..c3dbc1bba 100644
 --- a/packages/ui/src/lib/i18n/messages/de.ts
 +++ b/packages/ui/src/lib/i18n/messages/de.ts
 @@ -3759,6 +3759,33 @@ export const dict = {
@@ -398,7 +415,7 @@ index d5226c1cc..991c63c9a 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filter',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Ausgeblendet',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Namen',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Eine Regel pro Zeile; ein führendes ! blendet Treffer aus. Terme: feld=wert, feld~teil, feld!=wert oder ein Feld allein für Vorhandensein. Felder: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Eine Regel pro Zeile; ein führendes ! blendet Treffer aus. Terme: feld=wert, feld~teil, feld!=wert oder ein Feld allein für Vorhandensein. Felder: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} ungültige Regeln',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} von {total} angezeigt',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} ausgeblendet',
@@ -418,7 +435,7 @@ index d5226c1cc..991c63c9a 100644
    'sessions.sidebar.header.displayMode.showChats': 'Chat-Bereich anzeigen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Sitzungsstandards verwenden',
 diff --git a/packages/ui/src/lib/i18n/messages/en.ts b/packages/ui/src/lib/i18n/messages/en.ts
-index 544caa8b4..a604a397e 100644
+index 544caa8b4..6de46281e 100644
 --- a/packages/ui/src/lib/i18n/messages/en.ts
 +++ b/packages/ui/src/lib/i18n/messages/en.ts
 @@ -3761,6 +3761,33 @@ export const dict = {
@@ -436,7 +453,7 @@ index 544caa8b4..a604a397e 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filters',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Hidden',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Names',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'One rule per line; a leading ! hides matches. Terms: field=value, field~contains, field!=value, or a field alone for presence. Fields: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'One rule per line; a leading ! hides matches. Terms: field=value, field~contains, field!=value, or a field alone for presence. Fields: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} invalid rules',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} of {total} shown',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} hidden',
@@ -456,7 +473,7 @@ index 544caa8b4..a604a397e 100644
    'sessions.sidebar.header.displayMode.showChats': 'Show chats section',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Use session defaults',
 diff --git a/packages/ui/src/lib/i18n/messages/es.ts b/packages/ui/src/lib/i18n/messages/es.ts
-index 3ae950fb9..a3756fe5d 100644
+index 3ae950fb9..b9673a5c3 100644
 --- a/packages/ui/src/lib/i18n/messages/es.ts
 +++ b/packages/ui/src/lib/i18n/messages/es.ts
 @@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
@@ -474,7 +491,7 @@ index 3ae950fb9..a3756fe5d 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filtros',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Ocultos',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Nombres',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Una regla por línea; un ! inicial oculta las coincidencias. Términos: campo=valor, campo~parte, campo!=valor o un campo solo por presencia. Campos: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Una regla por línea; un ! inicial oculta las coincidencias. Términos: campo=valor, campo~parte, campo!=valor o un campo solo por presencia. Campos: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} reglas no válidas',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} de {total} mostrados',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} ocultos',
@@ -494,7 +511,7 @@ index 3ae950fb9..a3756fe5d 100644
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar sección de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar los valores predeterminados de sesión',
 diff --git a/packages/ui/src/lib/i18n/messages/fr.ts b/packages/ui/src/lib/i18n/messages/fr.ts
-index b897026f2..244e23fd1 100644
+index b897026f2..ddd4ec793 100644
 --- a/packages/ui/src/lib/i18n/messages/fr.ts
 +++ b/packages/ui/src/lib/i18n/messages/fr.ts
 @@ -3760,6 +3760,33 @@ export const dict = {
@@ -512,7 +529,7 @@ index b897026f2..244e23fd1 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filtres',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Masqués',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Noms',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Une règle par ligne ; un ! initial masque les correspondances. Termes : champ=valeur, champ~partie, champ!=valeur ou un champ seul pour la présence. Champs : port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Une règle par ligne ; un ! initial masque les correspondances. Termes : champ=valeur, champ~partie, champ!=valeur ou un champ seul pour la présence. Champs : port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} règles non valides',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} sur {total} affichés',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} masqués',
@@ -532,7 +549,7 @@ index b897026f2..244e23fd1 100644
    'sessions.sidebar.header.displayMode.showChats': 'Afficher la section des chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Utiliser les valeurs par défaut des sessions',
 diff --git a/packages/ui/src/lib/i18n/messages/he.ts b/packages/ui/src/lib/i18n/messages/he.ts
-index 85ba81534..728d649ab 100644
+index 85ba81534..749e690a4 100644
 --- a/packages/ui/src/lib/i18n/messages/he.ts
 +++ b/packages/ui/src/lib/i18n/messages/he.ts
 @@ -3718,6 +3718,33 @@ export const dict = {
@@ -550,7 +567,7 @@ index 85ba81534..728d649ab 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'מסננים',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'מוסתרים',
 +  'contextPanel.browser.devServers.settings.namesTab': 'שמות',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'כלל אחד בכל שורה; ! בהתחלה מסתיר התאמות. מונחים: field=value, field~part, field!=value או שדה לבדו לנוכחות. שדות: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'כלל אחד בכל שורה; ! בהתחלה מסתיר התאמות. מונחים: field=value, field~part, field!=value או שדה לבדו לנוכחות. שדות: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} כללים לא חוקיים',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} מתוך {total} מוצגים',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} מוסתרים',
@@ -570,7 +587,7 @@ index 85ba81534..728d649ab 100644
    'sessions.sidebar.header.displayMode.showChats': 'הצג את מקטע הצ\'אטים',
    'sessions.scheduledTasks.editor.useDefaults.label': 'השתמש בברירות המחדל של ההפעלה',
 diff --git a/packages/ui/src/lib/i18n/messages/ja.ts b/packages/ui/src/lib/i18n/messages/ja.ts
-index 9ffd6cc5f..8d608d3f6 100644
+index 9ffd6cc5f..5db450ed5 100644
 --- a/packages/ui/src/lib/i18n/messages/ja.ts
 +++ b/packages/ui/src/lib/i18n/messages/ja.ts
 @@ -3761,6 +3761,33 @@ export const dict: Record<I18nKey, string> = {
@@ -588,7 +605,7 @@ index 9ffd6cc5f..8d608d3f6 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'フィルター',
 +  'contextPanel.browser.devServers.settings.hiddenTab': '非表示',
 +  'contextPanel.browser.devServers.settings.namesTab': '名前',
-+  'contextPanel.browser.devServers.settings.filtersHint': '1行につき1ルール。先頭の ! は一致を非表示にします。項: field=value、field~part、field!=value、または存在を示すフィールド単体。フィールド: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': '1行につき1ルール。先頭の ! は一致を非表示にします。項: field=value、field~part、field!=value、または存在を示すフィールド単体。フィールド: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} 件の無効なルール',
 +  'contextPanel.browser.devServers.settings.matchCount': '{total} 件中 {visible} 件を表示',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} 件を非表示',
@@ -608,7 +625,7 @@ index 9ffd6cc5f..8d608d3f6 100644
    'sessions.sidebar.header.displayMode.showChats': 'チャットセクションを表示',
    'sessions.scheduledTasks.editor.useDefaults.label': 'セッションの既定値を使う',
 diff --git a/packages/ui/src/lib/i18n/messages/ko.ts b/packages/ui/src/lib/i18n/messages/ko.ts
-index 2bf3084da..82e7f7f28 100644
+index 2bf3084da..aee6b2e4e 100644
 --- a/packages/ui/src/lib/i18n/messages/ko.ts
 +++ b/packages/ui/src/lib/i18n/messages/ko.ts
 @@ -3761,6 +3761,33 @@ export const dict: Record<I18nKey, string> = {
@@ -626,7 +643,7 @@ index 2bf3084da..82e7f7f28 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': '필터',
 +  'contextPanel.browser.devServers.settings.hiddenTab': '숨김',
 +  'contextPanel.browser.devServers.settings.namesTab': '이름',
-+  'contextPanel.browser.devServers.settings.filtersHint': '줄당 하나의 규칙. 앞의 !는 일치 항목을 숨깁니다. 항: field=value, field~part, field!=value 또는 존재 여부를 위한 필드 단독. 필드: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': '줄당 하나의 규칙. 앞의 !는 일치 항목을 숨깁니다. 항: field=value, field~part, field!=value 또는 존재 여부를 위한 필드 단독. 필드: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '잘못된 규칙 {count}개',
 +  'contextPanel.browser.devServers.settings.matchCount': '{total}개 중 {visible}개 표시',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count}개 숨김',
@@ -646,7 +663,7 @@ index 2bf3084da..82e7f7f28 100644
    'sessions.sidebar.header.displayMode.showChats': '채팅 섹션 표시',
    'sessions.scheduledTasks.editor.useDefaults.label': '세션 기본값 사용',
 diff --git a/packages/ui/src/lib/i18n/messages/nl.ts b/packages/ui/src/lib/i18n/messages/nl.ts
-index 95841c323..8d3751e41 100644
+index 95841c323..ec91fa993 100644
 --- a/packages/ui/src/lib/i18n/messages/nl.ts
 +++ b/packages/ui/src/lib/i18n/messages/nl.ts
 @@ -3761,6 +3761,33 @@ export const dict = {
@@ -664,7 +681,7 @@ index 95841c323..8d3751e41 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filters',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Verborgen',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Namen',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Eén regel per regel; een leidende ! verbergt treffers. Termen: veld=waarde, veld~deel, veld!=waarde of een veld alleen voor aanwezigheid. Velden: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Eén regel per regel; een leidende ! verbergt treffers. Termen: veld=waarde, veld~deel, veld!=waarde of een veld alleen voor aanwezigheid. Velden: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} ongeldige regels',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} van {total} getoond',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} verborgen',
@@ -684,7 +701,7 @@ index 95841c323..8d3751e41 100644
    'sessions.sidebar.header.displayMode.showChats': 'Chatsectie tonen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Standaardinstellingen voor sessies gebruiken',
 diff --git a/packages/ui/src/lib/i18n/messages/pl.ts b/packages/ui/src/lib/i18n/messages/pl.ts
-index f08f98d96..2ed017b4a 100644
+index f08f98d96..ee42dd0f4 100644
 --- a/packages/ui/src/lib/i18n/messages/pl.ts
 +++ b/packages/ui/src/lib/i18n/messages/pl.ts
 @@ -3766,6 +3766,33 @@ export const dict: Record<I18nKey, string> = {
@@ -702,7 +719,7 @@ index f08f98d96..2ed017b4a 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filtry',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Ukryte',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Nazwy',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Jedna reguła na wiersz; początkowe ! ukrywa dopasowania. Termy: pole=wartość, pole~część, pole!=wartość lub samo pole dla obecności. Pola: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Jedna reguła na wiersz; początkowe ! ukrywa dopasowania. Termy: pole=wartość, pole~część, pole!=wartość lub samo pole dla obecności. Pola: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} nieprawidłowych reguł',
 +  'contextPanel.browser.devServers.settings.matchCount': 'Wyświetlono {visible} z {total}',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} ukrytych',
@@ -722,7 +739,7 @@ index f08f98d96..2ed017b4a 100644
    'sessions.sidebar.header.displayMode.showChats': 'Pokaż sekcję czatów',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Używaj domyślnych ustawień sesji',
 diff --git a/packages/ui/src/lib/i18n/messages/pt-BR.ts b/packages/ui/src/lib/i18n/messages/pt-BR.ts
-index 4a8a1816b..ef2b5f18b 100644
+index 4a8a1816b..b55216c8f 100644
 --- a/packages/ui/src/lib/i18n/messages/pt-BR.ts
 +++ b/packages/ui/src/lib/i18n/messages/pt-BR.ts
 @@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
@@ -740,7 +757,7 @@ index 4a8a1816b..ef2b5f18b 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filtros',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Ocultos',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Nomes',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Uma regra por linha; um ! inicial oculta as correspondências. Termos: campo=valor, campo~parte, campo!=valor ou um campo sozinho para presença. Campos: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Uma regra por linha; um ! inicial oculta as correspondências. Termos: campo=valor, campo~parte, campo!=valor ou um campo sozinho para presença. Campos: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} regras inválidas',
 +  'contextPanel.browser.devServers.settings.matchCount': '{visible} de {total} exibidos',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} ocultos',
@@ -760,7 +777,7 @@ index 4a8a1816b..ef2b5f18b 100644
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar seção de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar os padrões de sessão',
 diff --git a/packages/ui/src/lib/i18n/messages/tr.ts b/packages/ui/src/lib/i18n/messages/tr.ts
-index b6aa82b03..30cdd3833 100644
+index b6aa82b03..2088f4fd8 100644
 --- a/packages/ui/src/lib/i18n/messages/tr.ts
 +++ b/packages/ui/src/lib/i18n/messages/tr.ts
 @@ -3759,6 +3759,33 @@ export const dict = {
@@ -778,7 +795,7 @@ index b6aa82b03..30cdd3833 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Filtreler',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Gizli',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Adlar',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Her satırda bir kural; baştaki ! eşleşmeleri gizler. Terimler: alan=değer, alan~parça, alan!=değer ya da varlık için tek başına alan. Alanlar: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Her satırda bir kural; baştaki ! eşleşmeleri gizler. Terimler: alan=değer, alan~parça, alan!=değer ya da varlık için tek başına alan. Alanlar: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} geçersiz kural',
 +  'contextPanel.browser.devServers.settings.matchCount': '{total} içinden {visible} gösteriliyor',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} gizli',
@@ -798,7 +815,7 @@ index b6aa82b03..30cdd3833 100644
    'sessions.sidebar.header.displayMode.showChats': 'Sohbetler bölümünü göster',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Oturum varsayılanlarını kullan',
 diff --git a/packages/ui/src/lib/i18n/messages/uk.ts b/packages/ui/src/lib/i18n/messages/uk.ts
-index 2a5cef157..bfdb18752 100644
+index 2a5cef157..9e83dada9 100644
 --- a/packages/ui/src/lib/i18n/messages/uk.ts
 +++ b/packages/ui/src/lib/i18n/messages/uk.ts
 @@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
@@ -816,7 +833,7 @@ index 2a5cef157..bfdb18752 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': 'Фільтри',
 +  'contextPanel.browser.devServers.settings.hiddenTab': 'Приховані',
 +  'contextPanel.browser.devServers.settings.namesTab': 'Назви',
-+  'contextPanel.browser.devServers.settings.filtersHint': 'Одне правило на рядок; початковий ! приховує збіги. Терми: поле=значення, поле~частина, поле!=значення або саме поле для наявності. Поля: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port.',
++  'contextPanel.browser.devServers.settings.filtersHint': 'Одне правило на рядок; початковий ! приховує збіги. Терми: поле=значення, поле~частина, поле!=значення або саме поле для наявності. Поля: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} недійсних правил',
 +  'contextPanel.browser.devServers.settings.matchCount': 'Показано {visible} з {total}',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '{count} приховано',
@@ -836,7 +853,7 @@ index 2a5cef157..bfdb18752 100644
    'sessions.sidebar.header.displayMode.showChats': 'Показувати розділ чатів',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Використовувати типові налаштування сесії',
 diff --git a/packages/ui/src/lib/i18n/messages/zh-CN.ts b/packages/ui/src/lib/i18n/messages/zh-CN.ts
-index 8a0d46da0..27841b5c8 100644
+index 8a0d46da0..34c848598 100644
 --- a/packages/ui/src/lib/i18n/messages/zh-CN.ts
 +++ b/packages/ui/src/lib/i18n/messages/zh-CN.ts
 @@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
@@ -854,7 +871,7 @@ index 8a0d46da0..27841b5c8 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': '过滤器',
 +  'contextPanel.browser.devServers.settings.hiddenTab': '已隐藏',
 +  'contextPanel.browser.devServers.settings.namesTab': '名称',
-+  'contextPanel.browser.devServers.settings.filtersHint': '每行一条规则；开头的 ! 隐藏匹配项。项：field=value、field~part、field!=value 或单独字段表示存在。字段：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port。',
++  'contextPanel.browser.devServers.settings.filtersHint': '每行一条规则；开头的 ! 隐藏匹配项。项：field=value、field~part、field!=value 或单独字段表示存在。字段：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd。',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} 条无效规则',
 +  'contextPanel.browser.devServers.settings.matchCount': '显示 {visible}/{total}',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '已隐藏 {count} 个',
@@ -874,7 +891,7 @@ index 8a0d46da0..27841b5c8 100644
    'sessions.sidebar.header.displayMode.showChats': '显示聊天分区',
    'sessions.scheduledTasks.editor.useDefaults.label': '使用会话默认设置',
 diff --git a/packages/ui/src/lib/i18n/messages/zh-TW.ts b/packages/ui/src/lib/i18n/messages/zh-TW.ts
-index 4ba03b048..4105033d2 100644
+index 4ba03b048..bc5c7b1cd 100644
 --- a/packages/ui/src/lib/i18n/messages/zh-TW.ts
 +++ b/packages/ui/src/lib/i18n/messages/zh-TW.ts
 @@ -3761,6 +3761,33 @@ export const dict: Record<I18nKey, string> = {
@@ -892,7 +909,7 @@ index 4ba03b048..4105033d2 100644
 +  'contextPanel.browser.devServers.settings.filtersTab': '篩選器',
 +  'contextPanel.browser.devServers.settings.hiddenTab': '已隱藏',
 +  'contextPanel.browser.devServers.settings.namesTab': '名稱',
-+  'contextPanel.browser.devServers.settings.filtersHint': '每行一條規則；開頭的 ! 隱藏相符項目。項：field=value、field~part、field!=value 或單獨欄位表示存在。欄位：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port。',
++  'contextPanel.browser.devServers.settings.filtersHint': '每行一條規則；開頭的 ! 隱藏相符項目。項：field=value、field~part、field!=value 或單獨欄位表示存在。欄位：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd。',
 +  'contextPanel.browser.devServers.settings.invalidCount': '{count} 條無效規則',
 +  'contextPanel.browser.devServers.settings.matchCount': '顯示 {visible}/{total}',
 +  'contextPanel.browser.devServers.settings.hiddenCount': '已隱藏 {count} 個',
