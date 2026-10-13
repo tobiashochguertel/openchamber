@@ -2,10 +2,12 @@ import React from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SortableTabsStrip, type SortableTabsStripItem } from '@/components/ui/sortable-tabs-strip';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon/Icon';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
+import type { I18nContextValue } from '@/lib/i18n/react-context';
 import {
   isDevServerVisibleByRules,
   parseDevServerFilterRule,
@@ -203,67 +205,177 @@ const FiltersTab: React.FC<{ servers: readonly DevServerCandidate[] }> = ({ serv
   );
 };
 
-const HiddenTab: React.FC = () => {
+/** The hide rule that removed this server, or a keep-rule miss. */
+const hidingReason = (
+  server: DevServerCandidate,
+  rules: readonly string[],
+  t: I18nContextValue['t'],
+): string => {
+  for (const line of rules) {
+    const parsed = parseDevServerFilterRule(line);
+    if (parsed.ok && parsed.negate && !isDevServerVisibleByRules(server, [line])) {
+      return t('contextPanel.browser.devServers.settings.byRule', { rule: line });
+    }
+  }
+  return t('contextPanel.browser.devServers.settings.noKeepMatch');
+};
+
+const HiddenTab: React.FC<{ servers: readonly DevServerCandidate[] }> = ({ servers }) => {
   const { t } = useI18n();
   const hiddenPorts = useHiddenDevServerPorts();
-  if (hiddenPorts.length === 0) {
+  const rules = useDevServerFilterRules();
+  const byPort = new Map(servers.map((server) => [server.port, server]));
+  const ruleHidden = servers.filter(
+    (server) => !hiddenPorts.includes(server.port) && !isDevServerVisibleByRules(server, rules),
+  );
+  if (hiddenPorts.length === 0 && ruleHidden.length === 0) {
     return <p className="typography-micro text-muted-foreground">{t('contextPanel.browser.devServers.settings.noHidden')}</p>;
   }
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className="typography-micro text-muted-foreground">
-          {t('contextPanel.browser.devServers.settings.hiddenCount', { count: hiddenPorts.length })}
-        </span>
-        <Button size="sm" variant="outline" onClick={() => showHiddenDevServerPorts()}>
-          {t('contextPanel.browser.devServers.settings.showAll')}
-        </Button>
-      </div>
-      <ul className="flex flex-col">
-        {hiddenPorts.map((port) => (
-          <li key={port} className="flex items-center gap-2 py-1">
-            <span className="typography-ui-label text-foreground">localhost:{port}</span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="ms-auto h-6 px-2"
-              onClick={() => unhideDevServerPort(port)}
-              aria-label={t('contextPanel.browser.devServers.settings.showPort', { port })}
-            >
-              {t('contextPanel.browser.devServers.settings.show')}
+    <div className="flex flex-col gap-3">
+      {hiddenPorts.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <span className="typography-micro text-muted-foreground">
+              {t('contextPanel.browser.devServers.settings.manualHidden')}
+              {' · '}
+              {t('contextPanel.browser.devServers.settings.hiddenCount', { count: hiddenPorts.length })}
+            </span>
+            <Button size="sm" variant="outline" onClick={() => showHiddenDevServerPorts()}>
+              {t('contextPanel.browser.devServers.settings.showAll')}
             </Button>
-          </li>
-        ))}
-      </ul>
+          </div>
+          <ul className="flex flex-col">
+            {hiddenPorts.map((port) => {
+              const server = byPort.get(port);
+              return (
+                <li key={port} className="flex items-center gap-2 py-1">
+                  <span className="typography-ui-label text-foreground">localhost:{port}</span>
+                  {server ? (
+                    <span className="truncate typography-micro text-muted-foreground">
+                      {devServerContextLabel(server)}
+                    </span>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ms-auto h-6 px-2"
+                    onClick={() => unhideDevServerPort(port)}
+                    aria-label={t('contextPanel.browser.devServers.settings.showPort', { port })}
+                  >
+                    {t('contextPanel.browser.devServers.settings.show')}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {ruleHidden.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="typography-micro text-muted-foreground">
+            {t('contextPanel.browser.devServers.settings.hiddenByRules')}
+            {' · '}
+            {ruleHidden.length}
+          </span>
+          <ul className="flex flex-col">
+            {ruleHidden.map((server) => (
+              <li key={server.port} className="flex items-center gap-2 py-1">
+                <span className="typography-ui-label text-foreground">localhost:{server.port}</span>
+                <span className="truncate typography-micro text-muted-foreground">
+                  {devServerContextLabel(server)}
+                </span>
+                <span className="ms-auto truncate typography-micro text-muted-foreground" title={hidingReason(server, rules, t)}>
+                  {hidingReason(server, rules, t)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
 
-const NamesTab: React.FC = () => {
+const NameRow: React.FC<{ server: DevServerCandidate; existing: string }> = ({ server, existing }) => {
+  const { t } = useI18n();
+  const [value, setValue] = React.useState(existing);
+  const commit = () => {
+    const trimmed = value.trim();
+    setDevServerLabel(server.port, trimmed.length > 0 ? trimmed : null);
+  };
+  return (
+    <li className="flex items-center gap-2 py-1">
+      <span className="w-14 shrink-0 typography-ui-label text-foreground">:{server.port}</span>
+      <span className="w-32 shrink-0 truncate typography-micro text-muted-foreground">
+        {devServerContextLabel(server)}
+      </span>
+      <Input
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+        }}
+        placeholder={t('contextPanel.browser.devServers.settings.namePlaceholder')}
+        aria-label={t('contextPanel.browser.devServers.settings.namePort', { port: server.port })}
+        className="h-7 flex-1 typography-micro"
+      />
+      {existing ? (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-6 shrink-0"
+          onClick={() => setDevServerLabel(server.port, null)}
+          aria-label={t('contextPanel.browser.devServers.settings.clearName', { port: server.port })}
+        >
+          <Icon name="delete-bin" className="size-3" />
+        </Button>
+      ) : null}
+    </li>
+  );
+};
+
+const NamesTab: React.FC<{ servers: readonly DevServerCandidate[] }> = ({ servers }) => {
   const { t } = useI18n();
   const labels = useDevServerLabels();
-  const entries = Object.entries(labels).sort(([left], [right]) => Number(left) - Number(right));
-  if (entries.length === 0) {
+  const livePorts = new Set(servers.map((server) => server.port));
+  // A name can outlive its server — keep those rows editable for cleanup.
+  const staleEntries = Object.entries(labels)
+    .filter(([port]) => !livePorts.has(Number(port)))
+    .sort(([left], [right]) => Number(left) - Number(right));
+  if (servers.length === 0 && staleEntries.length === 0) {
     return <p className="typography-micro text-muted-foreground">{t('contextPanel.browser.devServers.settings.noNames')}</p>;
   }
   return (
-    <ul className="flex flex-col">
-      {entries.map(([port, name]) => (
-        <li key={port} className="flex items-center gap-2 py-1">
-          <span className="typography-ui-label text-foreground truncate">{name}</span>
-          <span className="typography-micro text-muted-foreground">:{port}</span>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="ms-auto size-6"
-            onClick={() => setDevServerLabel(Number(port), null)}
-            aria-label={t('contextPanel.browser.devServers.settings.clearName', { port })}
-          >
-            <Icon name="delete-bin" className="size-3" />
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      {servers.length > 0 && (
+        <ul className="flex flex-col">
+          {servers.map((server) => (
+            <NameRow key={server.port} server={server} existing={labels[String(server.port)] ?? ''} />
+          ))}
+        </ul>
+      )}
+      {staleEntries.length > 0 && (
+        <ul className="flex flex-col border-t border-border pt-2">
+          {staleEntries.map(([port, name]) => (
+            <li key={port} className="flex items-center gap-2 py-1">
+              <span className="typography-ui-label text-foreground truncate">{name}</span>
+              <span className="typography-micro text-muted-foreground">:{port}</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="ms-auto size-6"
+                onClick={() => setDevServerLabel(Number(port), null)}
+                aria-label={t('contextPanel.browser.devServers.settings.clearName', { port })}
+              >
+                <Icon name="delete-bin" className="size-3" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 };
 
@@ -351,8 +463,8 @@ export const DevServerSettingsDialog: React.FC<{
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === 'filters' && <FiltersTab servers={servers} />}
-          {tab === 'hidden' && <HiddenTab />}
-          {tab === 'names' && <NamesTab />}
+          {tab === 'hidden' && <HiddenTab servers={servers} />}
+          {tab === 'names' && <NamesTab servers={servers} />}
         </div>
 
         <DialogFooter>
