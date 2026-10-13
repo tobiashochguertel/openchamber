@@ -359,10 +359,10 @@ index 661fb9bf0..32447bd6e 100644
    listeners.add(listener);
    return () => { listeners.delete(listener); };
 diff --git a/packages/ui/src/lib/i18n/messages/ar.ts b/packages/ui/src/lib/i18n/messages/ar.ts
-index 449ba1275..749da2934 100644
+index 449ba1275..6050ad25e 100644
 --- a/packages/ui/src/lib/i18n/messages/ar.ts
 +++ b/packages/ui/src/lib/i18n/messages/ar.ts
-@@ -3718,6 +3718,33 @@ export const dict = {
+@@ -3718,6 +3718,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'إخفاء المنفذ {port} من هذه القائمة',
    'contextPanel.browser.devServers.showHiddenSingle': 'إظهار {count} منفذ مخفي',
    'contextPanel.browser.devServers.showHiddenPlural': 'إظهار {count} منافذ مخفية',
@@ -393,14 +393,20 @@ index 449ba1275..749da2934 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'إظهار حقول المنفذ {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'لا توجد خوادم لفحصها',
 +  'contextPanel.browser.devServers.settings.resize': 'تغيير حجم مربع الحوار',
++  'contextPanel.browser.devServers.settings.manualHidden': 'مخفية يدوياً',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'مخفية بالقواعد',
++  'contextPanel.browser.devServers.settings.byRule': 'مخفي بالقاعدة: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'لا يطابق أي قاعدة إظهار',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'اسم لهذا المنفذ',
++  'contextPanel.browser.devServers.settings.namePort': 'تسمية المنفذ {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'فتح في التطبيق الافتراضي',
    'sessions.sidebar.header.displayMode.showChats': 'إظهار قسم المحادثات',
    'sessions.scheduledTasks.editor.useDefaults.label': 'استخدام الإعدادات الافتراضية للجلسة',
 diff --git a/packages/ui/src/lib/i18n/messages/de.ts b/packages/ui/src/lib/i18n/messages/de.ts
-index d5226c1cc..c3dbc1bba 100644
+index d5226c1cc..fc3d692cc 100644
 --- a/packages/ui/src/lib/i18n/messages/de.ts
 +++ b/packages/ui/src/lib/i18n/messages/de.ts
-@@ -3759,6 +3759,33 @@ export const dict = {
+@@ -3759,6 +3759,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Port {port} in dieser Liste ausblenden',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} ausgeblendeten Port anzeigen',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} ausgeblendete Ports anzeigen',
@@ -431,14 +437,20 @@ index d5226c1cc..c3dbc1bba 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Felder für Port {port} anzeigen',
 +  'contextPanel.browser.devServers.settings.noServers': 'Keine Server zum Inspizieren',
 +  'contextPanel.browser.devServers.settings.resize': 'Dialoggröße ändern',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Manuell ausgeblendet',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Durch Regeln ausgeblendet',
++  'contextPanel.browser.devServers.settings.byRule': 'ausgeblendet durch Regel: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'trifft keine Keep-Regel',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Name für diesen Port',
++  'contextPanel.browser.devServers.settings.namePort': 'Port {port} benennen',
    'sidebarFilesTree.menu.openInDefaultApp': 'In Standard-App öffnen',
    'sessions.sidebar.header.displayMode.showChats': 'Chat-Bereich anzeigen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Sitzungsstandards verwenden',
 diff --git a/packages/ui/src/lib/i18n/messages/en.ts b/packages/ui/src/lib/i18n/messages/en.ts
-index 544caa8b4..6de46281e 100644
+index 544caa8b4..17ae0784c 100644
 --- a/packages/ui/src/lib/i18n/messages/en.ts
 +++ b/packages/ui/src/lib/i18n/messages/en.ts
-@@ -3761,6 +3761,33 @@ export const dict = {
+@@ -3761,6 +3761,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Hide port {port} from this list',
    'contextPanel.browser.devServers.showHiddenSingle': 'Show {count} hidden port',
    'contextPanel.browser.devServers.showHiddenPlural': 'Show {count} hidden ports',
@@ -469,14 +481,20 @@ index 544caa8b4..6de46281e 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Show fields for port {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'No servers to inspect',
 +  'contextPanel.browser.devServers.settings.resize': 'Resize dialog',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Hidden manually',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Hidden by rules',
++  'contextPanel.browser.devServers.settings.byRule': 'hidden by rule: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'matches no keep rule',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Name for this port',
++  'contextPanel.browser.devServers.settings.namePort': 'Name port {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'Open in default app',
    'sessions.sidebar.header.displayMode.showChats': 'Show chats section',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Use session defaults',
 diff --git a/packages/ui/src/lib/i18n/messages/es.ts b/packages/ui/src/lib/i18n/messages/es.ts
-index 3ae950fb9..b9673a5c3 100644
+index 3ae950fb9..d71e162c3 100644
 --- a/packages/ui/src/lib/i18n/messages/es.ts
 +++ b/packages/ui/src/lib/i18n/messages/es.ts
-@@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3762,6 +3762,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ocultar el puerto {port} de esta lista',
    'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} puerto oculto',
    'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} puertos ocultos',
@@ -507,14 +525,20 @@ index 3ae950fb9..b9673a5c3 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Mostrar campos del puerto {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'No hay servidores que inspeccionar',
 +  'contextPanel.browser.devServers.settings.resize': 'Cambiar el tamaño del diálogo',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Ocultados manualmente',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Ocultados por reglas',
++  'contextPanel.browser.devServers.settings.byRule': 'oculto por la regla: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'no coincide con ninguna regla de inclusión',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Nombre para este puerto',
++  'contextPanel.browser.devServers.settings.namePort': 'Nombrar el puerto {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'Abrir con la app predeterminada',
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar sección de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar los valores predeterminados de sesión',
 diff --git a/packages/ui/src/lib/i18n/messages/fr.ts b/packages/ui/src/lib/i18n/messages/fr.ts
-index b897026f2..ddd4ec793 100644
+index b897026f2..69e8198e6 100644
 --- a/packages/ui/src/lib/i18n/messages/fr.ts
 +++ b/packages/ui/src/lib/i18n/messages/fr.ts
-@@ -3760,6 +3760,33 @@ export const dict = {
+@@ -3760,6 +3760,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Masquer le port {port} de cette liste',
    'contextPanel.browser.devServers.showHiddenSingle': 'Afficher {count} port masqué',
    'contextPanel.browser.devServers.showHiddenPlural': 'Afficher {count} ports masqués',
@@ -545,14 +569,20 @@ index b897026f2..ddd4ec793 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Afficher les champs du port {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'Aucun serveur à inspecter',
 +  'contextPanel.browser.devServers.settings.resize': 'Redimensionner la boîte de dialogue',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Masqués manuellement',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Masqués par les règles',
++  'contextPanel.browser.devServers.settings.byRule': 'masqué par la règle : {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'ne correspond à aucune règle d’inclusion',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Nom pour ce port',
++  'contextPanel.browser.devServers.settings.namePort': 'Nommer le port {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'Ouvrir avec l’app par défaut',
    'sessions.sidebar.header.displayMode.showChats': 'Afficher la section des chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Utiliser les valeurs par défaut des sessions',
 diff --git a/packages/ui/src/lib/i18n/messages/he.ts b/packages/ui/src/lib/i18n/messages/he.ts
-index 85ba81534..749e690a4 100644
+index 85ba81534..9ea158e89 100644
 --- a/packages/ui/src/lib/i18n/messages/he.ts
 +++ b/packages/ui/src/lib/i18n/messages/he.ts
-@@ -3718,6 +3718,33 @@ export const dict = {
+@@ -3718,6 +3718,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'הסתר את פורט {port} מהרשימה',
    'contextPanel.browser.devServers.showHiddenSingle': 'הצג פורט מוסתר {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'הצג {count} פורטים מוסתרים',
@@ -583,14 +613,20 @@ index 85ba81534..749e690a4 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'הצג שדות עבור פורט {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'אין שרתים לבדיקה',
 +  'contextPanel.browser.devServers.settings.resize': 'שינוי גודל תיבת הדו-שיח',
++  'contextPanel.browser.devServers.settings.manualHidden': 'מוסתרים ידנית',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'מוסתרים על ידי כללים',
++  'contextPanel.browser.devServers.settings.byRule': 'מוסתר על ידי הכלל: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'לא תואם אף כלל הצגה',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'שם לפורט הזה',
++  'contextPanel.browser.devServers.settings.namePort': 'תן שם לפורט {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'פתח באפליקציית ברירת המחדל',
    'sessions.sidebar.header.displayMode.showChats': 'הצג את מקטע הצ\'אטים',
    'sessions.scheduledTasks.editor.useDefaults.label': 'השתמש בברירות המחדל של ההפעלה',
 diff --git a/packages/ui/src/lib/i18n/messages/ja.ts b/packages/ui/src/lib/i18n/messages/ja.ts
-index 9ffd6cc5f..5db450ed5 100644
+index 9ffd6cc5f..ff963b09f 100644
 --- a/packages/ui/src/lib/i18n/messages/ja.ts
 +++ b/packages/ui/src/lib/i18n/messages/ja.ts
-@@ -3761,6 +3761,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3761,6 +3761,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'ポート {port} をこの一覧から隠す',
    'contextPanel.browser.devServers.showHiddenSingle': '隠したポート {count} 件を表示',
    'contextPanel.browser.devServers.showHiddenPlural': '隠したポート {count} 件を表示',
@@ -621,14 +657,20 @@ index 9ffd6cc5f..5db450ed5 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'ポート {port} のフィールドを表示',
 +  'contextPanel.browser.devServers.settings.noServers': '検査対象のサーバーがありません',
 +  'contextPanel.browser.devServers.settings.resize': 'ダイアログのサイズを変更',
++  'contextPanel.browser.devServers.settings.manualHidden': '手動で非表示',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'ルールで非表示',
++  'contextPanel.browser.devServers.settings.byRule': 'ルールによる非表示: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'どの keep ルールにも一致しません',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'このポートの名前',
++  'contextPanel.browser.devServers.settings.namePort': 'ポート {port} に名前を付ける',
    'sidebarFilesTree.menu.openInDefaultApp': '既定のアプリで開く',
    'sessions.sidebar.header.displayMode.showChats': 'チャットセクションを表示',
    'sessions.scheduledTasks.editor.useDefaults.label': 'セッションの既定値を使う',
 diff --git a/packages/ui/src/lib/i18n/messages/ko.ts b/packages/ui/src/lib/i18n/messages/ko.ts
-index 2bf3084da..aee6b2e4e 100644
+index 2bf3084da..226d4a039 100644
 --- a/packages/ui/src/lib/i18n/messages/ko.ts
 +++ b/packages/ui/src/lib/i18n/messages/ko.ts
-@@ -3761,6 +3761,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3761,6 +3761,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '이 목록에서 포트 {port} 숨기기',
    'contextPanel.browser.devServers.showHiddenSingle': '숨긴 포트 {count}개 표시',
    'contextPanel.browser.devServers.showHiddenPlural': '숨긴 포트 {count}개 표시',
@@ -659,14 +701,20 @@ index 2bf3084da..aee6b2e4e 100644
 +  'contextPanel.browser.devServers.settings.expandServer': '포트 {port}의 필드 표시',
 +  'contextPanel.browser.devServers.settings.noServers': '검사할 서버 없음',
 +  'contextPanel.browser.devServers.settings.resize': '대화상자 크기 조정',
++  'contextPanel.browser.devServers.settings.manualHidden': '수동으로 숨김',
++  'contextPanel.browser.devServers.settings.hiddenByRules': '규칙으로 숨김',
++  'contextPanel.browser.devServers.settings.byRule': '규칙으로 숨김: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'keep 규칙과 일치하지 않음',
++  'contextPanel.browser.devServers.settings.namePlaceholder': '이 포트의 이름',
++  'contextPanel.browser.devServers.settings.namePort': '포트 {port} 이름 지정',
    'sidebarFilesTree.menu.openInDefaultApp': '기본 앱에서 열기',
    'sessions.sidebar.header.displayMode.showChats': '채팅 섹션 표시',
    'sessions.scheduledTasks.editor.useDefaults.label': '세션 기본값 사용',
 diff --git a/packages/ui/src/lib/i18n/messages/nl.ts b/packages/ui/src/lib/i18n/messages/nl.ts
-index 95841c323..ec91fa993 100644
+index 95841c323..a438cdaf7 100644
 --- a/packages/ui/src/lib/i18n/messages/nl.ts
 +++ b/packages/ui/src/lib/i18n/messages/nl.ts
-@@ -3761,6 +3761,33 @@ export const dict = {
+@@ -3761,6 +3761,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Poort {port} in deze lijst verbergen',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} verborgen poort tonen',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} verborgen poorten tonen',
@@ -697,14 +745,20 @@ index 95841c323..ec91fa993 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Velden voor poort {port} tonen',
 +  'contextPanel.browser.devServers.settings.noServers': 'Geen servers om te inspecteren',
 +  'contextPanel.browser.devServers.settings.resize': 'Dialoogvenster aanpassen',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Handmatig verborgen',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Verborgen door regels',
++  'contextPanel.browser.devServers.settings.byRule': 'verborgen door regel: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'komt met geen keep-regel overeen',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Naam voor deze poort',
++  'contextPanel.browser.devServers.settings.namePort': 'Poort {port} een naam geven',
    'sidebarFilesTree.menu.openInDefaultApp': 'Openen in standaardapp',
    'sessions.sidebar.header.displayMode.showChats': 'Chatsectie tonen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Standaardinstellingen voor sessies gebruiken',
 diff --git a/packages/ui/src/lib/i18n/messages/pl.ts b/packages/ui/src/lib/i18n/messages/pl.ts
-index f08f98d96..ee42dd0f4 100644
+index f08f98d96..b198675a0 100644
 --- a/packages/ui/src/lib/i18n/messages/pl.ts
 +++ b/packages/ui/src/lib/i18n/messages/pl.ts
-@@ -3766,6 +3766,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3766,6 +3766,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ukryj port {port} na tej liście',
    'contextPanel.browser.devServers.showHiddenSingle': 'Pokaż ukryte porty: {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'Pokaż ukryte porty: {count}',
@@ -735,14 +789,20 @@ index f08f98d96..ee42dd0f4 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Pokaż pola portu {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'Brak serwerów do inspekcji',
 +  'contextPanel.browser.devServers.settings.resize': 'Zmień rozmiar okna',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Ukryte ręcznie',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Ukryte przez reguły',
++  'contextPanel.browser.devServers.settings.byRule': 'ukryty przez regułę: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'nie pasuje do żadnej reguły zachowania',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Nazwa tego portu',
++  'contextPanel.browser.devServers.settings.namePort': 'Nazwij port {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'Otwórz w domyślnej aplikacji',
    'sessions.sidebar.header.displayMode.showChats': 'Pokaż sekcję czatów',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Używaj domyślnych ustawień sesji',
 diff --git a/packages/ui/src/lib/i18n/messages/pt-BR.ts b/packages/ui/src/lib/i18n/messages/pt-BR.ts
-index 4a8a1816b..b55216c8f 100644
+index 4a8a1816b..78e806372 100644
 --- a/packages/ui/src/lib/i18n/messages/pt-BR.ts
 +++ b/packages/ui/src/lib/i18n/messages/pt-BR.ts
-@@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3762,6 +3762,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ocultar a porta {port} desta lista',
    'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} porta oculta',
    'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} portas ocultas',
@@ -773,14 +833,20 @@ index 4a8a1816b..b55216c8f 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Mostrar campos da porta {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'Sem servidores para inspecionar',
 +  'contextPanel.browser.devServers.settings.resize': 'Redimensionar diálogo',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Ocultados manualmente',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Ocultados por regras',
++  'contextPanel.browser.devServers.settings.byRule': 'oculto pela regra: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'não corresponde a nenhuma regra de inclusão',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Nome para esta porta',
++  'contextPanel.browser.devServers.settings.namePort': 'Nomear a porta {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'Abrir no app padrão',
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar seção de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar os padrões de sessão',
 diff --git a/packages/ui/src/lib/i18n/messages/tr.ts b/packages/ui/src/lib/i18n/messages/tr.ts
-index b6aa82b03..2088f4fd8 100644
+index b6aa82b03..a7148bbeb 100644
 --- a/packages/ui/src/lib/i18n/messages/tr.ts
 +++ b/packages/ui/src/lib/i18n/messages/tr.ts
-@@ -3759,6 +3759,33 @@ export const dict = {
+@@ -3759,6 +3759,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': '{port} bağlantı noktasını bu listede gizle',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} gizli bağlantı noktasını göster',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} gizli bağlantı noktasını göster',
@@ -811,14 +877,20 @@ index b6aa82b03..2088f4fd8 100644
 +  'contextPanel.browser.devServers.settings.expandServer': '{port} bağlantı noktası alanlarını göster',
 +  'contextPanel.browser.devServers.settings.noServers': 'İncelenecek sunucu yok',
 +  'contextPanel.browser.devServers.settings.resize': 'İletişim penceresini yeniden boyutlandır',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Elle gizlenenler',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Kurallarla gizlenenler',
++  'contextPanel.browser.devServers.settings.byRule': 'gizleyen kural: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'hiçbir keep kuralıyla eşleşmiyor',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Bu bağlantı noktası için ad',
++  'contextPanel.browser.devServers.settings.namePort': '{port} bağlantı noktasını adlandır',
    'sidebarFilesTree.menu.openInDefaultApp': 'Varsayılan uygulamada aç',
    'sessions.sidebar.header.displayMode.showChats': 'Sohbetler bölümünü göster',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Oturum varsayılanlarını kullan',
 diff --git a/packages/ui/src/lib/i18n/messages/uk.ts b/packages/ui/src/lib/i18n/messages/uk.ts
-index 2a5cef157..9e83dada9 100644
+index 2a5cef157..815f4fb1b 100644
 --- a/packages/ui/src/lib/i18n/messages/uk.ts
 +++ b/packages/ui/src/lib/i18n/messages/uk.ts
-@@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3762,6 +3762,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Сховати порт {port} з цього списку',
    'contextPanel.browser.devServers.showHiddenSingle': 'Показати приховані порти: {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'Показати приховані порти: {count}',
@@ -849,14 +921,20 @@ index 2a5cef157..9e83dada9 100644
 +  'contextPanel.browser.devServers.settings.expandServer': 'Показати поля порту {port}',
 +  'contextPanel.browser.devServers.settings.noServers': 'Немає серверів для огляду',
 +  'contextPanel.browser.devServers.settings.resize': 'Змінити розмір діалогового вікна',
++  'contextPanel.browser.devServers.settings.manualHidden': 'Приховані вручну',
++  'contextPanel.browser.devServers.settings.hiddenByRules': 'Приховані правилами',
++  'contextPanel.browser.devServers.settings.byRule': 'приховано правилом: {rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': 'не відповідає жодному правилу збереження',
++  'contextPanel.browser.devServers.settings.namePlaceholder': 'Назва цього порту',
++  'contextPanel.browser.devServers.settings.namePort': 'Назвати порт {port}',
    'sidebarFilesTree.menu.openInDefaultApp': 'Відкрити в програмі за замовчуванням',
    'sessions.sidebar.header.displayMode.showChats': 'Показувати розділ чатів',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Використовувати типові налаштування сесії',
 diff --git a/packages/ui/src/lib/i18n/messages/zh-CN.ts b/packages/ui/src/lib/i18n/messages/zh-CN.ts
-index 8a0d46da0..34c848598 100644
+index 8a0d46da0..6771c83d5 100644
 --- a/packages/ui/src/lib/i18n/messages/zh-CN.ts
 +++ b/packages/ui/src/lib/i18n/messages/zh-CN.ts
-@@ -3762,6 +3762,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3762,6 +3762,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '从此列表中隐藏端口 {port}',
    'contextPanel.browser.devServers.showHiddenSingle': '显示 {count} 个已隐藏端口',
    'contextPanel.browser.devServers.showHiddenPlural': '显示 {count} 个已隐藏端口',
@@ -887,14 +965,20 @@ index 8a0d46da0..34c848598 100644
 +  'contextPanel.browser.devServers.settings.expandServer': '显示端口 {port} 的字段',
 +  'contextPanel.browser.devServers.settings.noServers': '没有可检查的服务器',
 +  'contextPanel.browser.devServers.settings.resize': '调整对话框大小',
++  'contextPanel.browser.devServers.settings.manualHidden': '手动隐藏',
++  'contextPanel.browser.devServers.settings.hiddenByRules': '被规则隐藏',
++  'contextPanel.browser.devServers.settings.byRule': '被规则隐藏：{rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': '不匹配任何 keep 规则',
++  'contextPanel.browser.devServers.settings.namePlaceholder': '此端口的名称',
++  'contextPanel.browser.devServers.settings.namePort': '为端口 {port} 命名',
    'sidebarFilesTree.menu.openInDefaultApp': '用默认应用打开',
    'sessions.sidebar.header.displayMode.showChats': '显示聊天分区',
    'sessions.scheduledTasks.editor.useDefaults.label': '使用会话默认设置',
 diff --git a/packages/ui/src/lib/i18n/messages/zh-TW.ts b/packages/ui/src/lib/i18n/messages/zh-TW.ts
-index 4ba03b048..bc5c7b1cd 100644
+index 4ba03b048..8fa9196a0 100644
 --- a/packages/ui/src/lib/i18n/messages/zh-TW.ts
 +++ b/packages/ui/src/lib/i18n/messages/zh-TW.ts
-@@ -3761,6 +3761,33 @@ export const dict: Record<I18nKey, string> = {
+@@ -3761,6 +3761,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '從此清單隱藏連接埠 {port}',
    'contextPanel.browser.devServers.showHiddenSingle': '顯示 {count} 個已隱藏連接埠',
    'contextPanel.browser.devServers.showHiddenPlural': '顯示 {count} 個已隱藏連接埠',
@@ -925,6 +1009,12 @@ index 4ba03b048..bc5c7b1cd 100644
 +  'contextPanel.browser.devServers.settings.expandServer': '顯示連接埠 {port} 的欄位',
 +  'contextPanel.browser.devServers.settings.noServers': '沒有可檢視的伺服器',
 +  'contextPanel.browser.devServers.settings.resize': '調整對話方塊大小',
++  'contextPanel.browser.devServers.settings.manualHidden': '手動隱藏',
++  'contextPanel.browser.devServers.settings.hiddenByRules': '被規則隱藏',
++  'contextPanel.browser.devServers.settings.byRule': '被規則隱藏：{rule}',
++  'contextPanel.browser.devServers.settings.noKeepMatch': '不符合任何 keep 規則',
++  'contextPanel.browser.devServers.settings.namePlaceholder': '此連接埠的名稱',
++  'contextPanel.browser.devServers.settings.namePort': '為連接埠 {port} 命名',
    'sidebarFilesTree.menu.openInDefaultApp': '以預設應用程式開啟',
    'sessions.sidebar.header.displayMode.showChats': '顯示聊天區段',
    'sessions.scheduledTasks.editor.useDefaults.label': '使用工作階段預設值',
