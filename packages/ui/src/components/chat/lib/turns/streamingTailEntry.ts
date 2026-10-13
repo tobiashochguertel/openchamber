@@ -9,7 +9,6 @@ export type StreamingTailEntry =
         kind: 'ungrouped';
         key: string;
         message: ChatMessageEntry;
-        previousMessage?: ChatMessageEntry;
         nextMessage?: ChatMessageEntry;
     }
     | { kind: 'turn'; key: string; turn: TurnRecord; isLastTurn: boolean };
@@ -94,6 +93,7 @@ export const buildLiveStreamingEntry = <TEntry extends StreamingTailEntry>(
     const projection = projectTurnRecords(sourceMessages, {
         showTurnChangedFiles: options.showTurnChangedFiles,
         mergeHiddenUserTurns: options.mergeHiddenUserTurns,
+        firstMessageOpensTurn: true,
     });
     const turn = projection.turns[0] ?? {
         ...entry.turn,
