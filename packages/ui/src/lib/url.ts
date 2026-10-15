@@ -106,7 +106,7 @@ export const isLoopbackHttpUrl = (url: string): boolean => {
 };
 
 const LOOPBACK_URL_PATTERN
-  // eslint-disable-next-line no-control-regex
+  // oxlint-disable-next-line no-control-regex
   = /\bhttps?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d{2,5})?(?:\/[^\s<>"'`\u0000-\u001f]*)?/gi;
 
 /**
@@ -185,8 +185,11 @@ const openValidatedExternalUrl = async (url: string): Promise<boolean> => {
   }
 
   try {
-    window.open(normalizedTarget, '_blank', 'noopener,noreferrer');
-    return true;
+    const handle = window.open(normalizedTarget, '_blank', 'noopener,noreferrer');
+    // A popup blocker swallows the call and answers with null; report it so
+    // callers can fall back to a visible affordance instead of assuming the
+    // window opened.
+    return handle !== null;
   } catch {
     return false;
   }

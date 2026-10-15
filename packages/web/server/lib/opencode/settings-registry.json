@@ -162,6 +162,9 @@
     "agentNotifyToolEnabled": {
       "scope": "instance"
     },
+    "agentRenderToolEnabled": {
+      "scope": "instance"
+    },
     "agentToolsCodeMode": {
       "scope": "instance"
     },
@@ -169,6 +172,9 @@
       "scope": "instance"
     },
     "agentMemoryToolEnabled": {
+      "scope": "instance"
+    },
+    "agentKnowledgeToolEnabled": {
       "scope": "instance"
     },
     "isolatedSpacesEnabled": {
@@ -287,6 +293,14 @@
       "perSurface": true
     },
     "sidebarShowWorkSection": {
+      "scope": "profile",
+      "perSurface": true
+    },
+    "sidebarShowPinnedSection": {
+      "scope": "profile",
+      "perSurface": true
+    },
+    "sidebarDetailedZoneRows": {
       "scope": "profile",
       "perSurface": true
     },
@@ -419,6 +433,20 @@
       "surfaces": [
         "web",
         "desktop"
+      ]
+    },
+    "openLinksInBrowserPanel": {
+      "scope": "profile",
+      "surfaces": [
+        "desktop"
+      ]
+    },
+    "openTrackerLinksOnBoard": {
+      "scope": "profile",
+      "surfaces": [
+        "web",
+        "desktop",
+        "mobile"
       ]
     },
     "autoCreateWorktree": {
@@ -751,10 +779,6 @@
       "scope": "device",
       "local": true
     },
-    "notesPanelHeight": {
-      "scope": "device",
-      "local": true
-    },
     "workStatusExpandedSections": {
       "scope": "device",
       "local": true
@@ -828,10 +852,6 @@
       "local": true
     },
     "agentMemoryViewedAt": {
-      "scope": "device",
-      "local": true
-    },
-    "projectContextSidebarWidth": {
       "scope": "device",
       "local": true
     },
