@@ -130,7 +130,9 @@ const transportTo = (currentInside, { ids = [ID], token = TOKEN } = {}) => {
   return {
     calls,
     ids,
-    listSpaceIds: async () => { calls.list += 1; return ids; },
+    // The failure of a place that could not be asked, as the host's list reports it.
+    failure: null,
+    listSpaceIds: async function () { calls.list += 1; return { ids, failure: this.failure }; },
     connect: async (spaceId) => {
       calls.connect += 1;
       if (!ids.includes(spaceId)) throw new SpaceError('space_not_found', `Space ${spaceId} has no container`);
@@ -191,6 +193,7 @@ describe('space routes and directories', () => {
     expect(classifySpacePath('/api/fs/preview/grant/index.html')).toBe('refused_across_boundary');
     expect(classifySpacePath('/api/preview/proxy/3000/')).toBe('refused_across_boundary');
     expect(classifySpacePath('/api/git/worktrees')).toBe('refused_across_boundary');
+    expect(classifySpacePath('/api/git/project-worktrees')).toBe('refused_across_boundary');
     expect(classifySpacePath('/api/git/integrate/merge')).toBe('refused_across_boundary');
     expect(classifySpacePath('/api/session/ses_1/move')).toBe('refused_across_boundary');
     // Express inside routes without regard to case.
@@ -200,6 +203,8 @@ describe('space routes and directories', () => {
     expect(classifySpacePath('/api/Session/ses_1/Move')).toBe('refused_across_boundary');
     expect(classifySpacePath('/api/session')).toBeNull();
     expect(classifySpacePath('/api/git/status')).toBeNull();
+    expect(classifySpacePath('/api/git/projects')).toBeNull();
+    expect(classifySpacePath('/api/fs/directory-stats')).toBeNull();
     expect(classifySpacePath('/api/fs/raw')).toBeNull();
     expect(classifySpacePath('/api/config/agents')).toBeNull();
   });
@@ -429,6 +434,22 @@ describe('space dispatcher', () => {
     await new Promise((resolve) => { setTimeout(resolve, 600); });
     const found = await fetch(host.url(`/api/spaces/${OTHER}/echo`));
     expect(found.status).toBe(200);
+  });
+
+  it('never calls a space gone while a place could not be asked, and serves the ones it lists', async () => {
+    await start();
+    transport.failure = new SpaceError('docker_command_failed', 'Cannot connect to the Docker daemon');
+    const unknown = await fetch(host.url(`/api/spaces/${OTHER}/echo`));
+    expect(unknown.status).toBe(502);
+    expect(await unknown.json()).toMatchObject({ code: 'space_unreachable' });
+    expect(transport.calls.connect).toBe(0);
+    expect((await fetch(host.url(`/api/spaces/${ID}/echo`))).status).toBe(200);
+
+    transport.failure = null;
+    await new Promise((resolve) => { setTimeout(resolve, 600); });
+    const gone = await fetch(host.url(`/api/spaces/${OTHER}/echo`));
+    expect(gone.status).toBe(404);
+    expect(await gone.json()).toMatchObject({ code: 'space_not_found' });
   });
 
   it('lets no cookie through from a space, marks every answer nosniff, and serves a page as text', async () => {

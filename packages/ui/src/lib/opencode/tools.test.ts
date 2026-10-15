@@ -7,12 +7,14 @@ import {
   executeOutputTruncation,
   executeScript,
   executeToolCalls,
+  executeHasBackgroundableWork,
   isExplorationTool,
   isFileChangeTool,
   isShellTool,
   isSubagentTool,
   isWebTool,
   normalizeToolName,
+  renderedPage,
   subagentSessionId,
   toolDescription,
   toolFileDiffs,
@@ -211,6 +213,14 @@ describe("tool row description", () => {
 })
 
 describe("execute call details", () => {
+  test("recognizes blocking child progress and ignores invalid job markers", () => {
+    expect(executeHasBackgroundableWork({ shellID: "sh_1" })).toBe(true)
+    expect(executeHasBackgroundableWork({ sessionID: "ses_child", status: "running" })).toBe(true)
+    expect(executeHasBackgroundableWork({ sessionID: "ses_child", status: "completed" })).toBe(false)
+    expect(executeHasBackgroundableWork({ shellID: 1, sessionID: false, status: "running" })).toBe(false)
+    expect(executeHasBackgroundableWork({ shellID: "  ", toolCalls: [null, { tool: "runtime.shell:3", status: "running" }] })).toBe(true)
+    expect(executeHasBackgroundableWork(undefined)).toBe(false)
+  })
   test("keeps order and status, serializes the input on one line, drops nameless calls", () => {
     expect(executeToolCalls({
       toolCalls: [
@@ -238,5 +248,28 @@ describe("execute call details", () => {
   test("reads the script off the input", () => {
     expect(executeScript({ code: "return 1" })).toBe("return 1")
     expect(executeScript({})).toBe(undefined)
+  })
+})
+
+describe("renderedPage", () => {
+  const accepted = { openchamber: { ok: true } }
+
+  test("reads the page from parameters, or beside the action, once OpenChamber accepted it", () => {
+    expect(renderedPage("openchamber_render", { action: "render.page", parameters: { html: "<p>a</p>", title: "Chart" } }, accepted))
+      .toEqual({ html: "<p>a</p>", title: "Chart" })
+    expect(renderedPage("openchamber_render", { action: "render.page", html: "<p>b</p>", title: "Flat" }, accepted))
+      .toEqual({ html: "<p>b</p>", title: "Flat" })
+    // An explicit parameters object wins, as it does in the plugin.
+    expect(renderedPage("openchamber_render", { html: "<p>flat</p>", parameters: { html: "<p>nested</p>", title: "T" } }, accepted))
+      .toEqual({ html: "<p>nested</p>", title: "T" })
+  })
+
+  test("leaves a refused, unfinished, empty or foreign call to its tool row", () => {
+    const input = { action: "render.page", parameters: { html: "<p>a</p>", title: "Chart" } }
+    expect(renderedPage("openchamber_render", input, { openchamber: { ok: false } })).toBeNull()
+    expect(renderedPage("openchamber_render", input, undefined)).toBeNull()
+    expect(renderedPage("openchamber_render", { parameters: { html: "  ", title: "Chart" } }, accepted)).toBeNull()
+    expect(renderedPage("openchamber_render", { parameters: { html: "<p>a</p>" } }, accepted)).toBeNull()
+    expect(renderedPage("openchamber", input, accepted)).toBeNull()
   })
 })

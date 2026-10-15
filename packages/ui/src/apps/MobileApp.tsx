@@ -31,6 +31,8 @@ import { useUpdatePolling } from '@/hooks/useUpdatePolling';
 import { useWindowTitle } from '@/hooks/useWindowTitle';
 import { useEnterprisePolicySync } from '@/hooks/useEnterprisePolicySync';
 import { useRoutingSync } from '@/hooks/useRoutingSync';
+import { useAgentMemorySync } from '@/hooks/useAgentMemorySync';
+import { resolvePlanRequestOwner } from '@/hooks/useProjectContextOwner';
 import { opencodeClient } from '@/lib/opencode/client';
 import type { RuntimeAPIs } from '@/lib/api/types';
 import type { ProjectRef } from '@/lib/projectContextApi';
@@ -38,15 +40,15 @@ import { readTabletLayout, useOrientation, useTabletLayout } from '@/lib/device'
 import { useHardwareKeyboard } from '@/lib/hardwareKeyboard';
 import { useI18n } from '@/lib/i18n';
 import { subscribeOpenchamberEvents } from '@/lib/openchamberEvents';
-import { runtimeFetch } from '@/lib/runtime-fetch';
 import { getRuntimeApiBaseUrl, subscribeRuntimeEndpointChanged, switchRuntimeEndpoint, MOBILE_DISCONNECTED_RUNTIME_KEY } from '@/lib/runtime-switch';
+import { subscribeActiveRelayTunnelStatus } from '@/lib/relay/runtime-tunnel';
+import { isRelayLimitReached } from '@/lib/relay/tunnel-client';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
 import { useAuthoritativeSessionCleanup } from '@/components/session/sidebar/list/useAuthoritativeSessionCleanup';
 import { restoreLastActiveSession } from '@/sync/last-session-restore';
 import { cn } from '@/lib/utils';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
-import { useFeatureFlagsStore } from '@/stores/useFeatureFlagsStore';
 import { useSourceControlAuthStore } from '@/stores/useSourceControlAuthStore';
 import { useLinearAuthStore } from '@/stores/useLinearAuthStore';
 import { useGitStore } from '@/stores/useGitStore';
@@ -226,6 +228,15 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
     useUIStore.getState().openContextFile(directory, event.path);
     openFilesSurface();
   }), [openFilesSurface]);
+
+  // The agent asked for a saved plan to be shown: the plan opens the way a tap
+  // on it in the Project knowledge drawer opens it.
+  React.useEffect(() => subscribeOpenchamberEvents((event) => {
+    if (event.type !== 'plan-open-request') return;
+    const projectRef = resolvePlanRequestOwner(event.directory ?? useDirectoryStore.getState().currentDirectory, event.projectId);
+    if (!projectRef) return;
+    setOpenPlan({ id: event.planId, title: event.title, projectRef });
+  }), []);
 
   const openChangesSurface = React.useCallback((diff: { path: string; staged: boolean } | null = null) => {
     setPendingChangesDiff(diff);
@@ -723,10 +734,10 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
             dialogAlign="app"
             onClose={closeSurface}
             ariaLabel={t('sourceBoard.title')}
-            title={t('sourceBoard.title')}
+            headerless
           >
             <ErrorBoundary>
-              <MobileSourceBoard onLeave={leaveSourceBoard} />
+              <MobileSourceBoard onLeave={leaveSourceBoard} onClose={closeSurface} />
             </ErrorBoundary>
           </MobileFullscreenSurface>
         ) : null}
@@ -784,7 +795,6 @@ function MobileAppContent({ apis }: MobileAppProps) {
   const setIsMobile = useUIStore((state) => state.setIsMobile);
   const refreshSourceControlAuth = useSourceControlAuthStore((state) => state.refreshAll);
   const refreshLinearAuthStatus = useLinearAuthStore((state) => state.refreshStatus);
-  const setPlanModeEnabled = useFeatureFlagsStore((state) => state.setPlanModeEnabled);
   const projects = useProjectsStore((state) => state.projects);
   // The mobile shell has no layout-level session list sync, so a lost
   // `session.deleted` is reconciled here from the same complete global
@@ -866,6 +876,15 @@ function MobileAppContent({ apis }: MobileAppProps) {
         disconnect('needs-login');
         return;
       }
+      if (outcome === 'relay-limit') {
+        // The relay refused this device over its limits. The parked tunnel
+        // makes no attempt of its own, so the grace ladder below would only
+        // keep the user on a frozen session. The connect screen says why;
+        // tapping the instance, or the next resume/online, tries again.
+        setAutoConnectNotice({ kind: 'relay-limit', label: getAutoConnectTargetLabel() ?? '' });
+        disconnect('relay-limit');
+        return;
+      }
       if (outcome === 'unreachable') {
         // Right after a resume or Wi-Fi switch the network is often still
         // settling (Android without a SIM has NO connectivity for a few
@@ -889,6 +908,11 @@ function MobileAppContent({ apis }: MobileAppProps) {
               if (retry === 'needs-login') {
                 setAutoConnectNotice({ kind: 'auth-expired', label: getAutoConnectTargetLabel() ?? '' });
                 disconnect('retry-needs-login');
+                return;
+              }
+              if (retry === 'relay-limit') {
+                setAutoConnectNotice({ kind: 'relay-limit', label: getAutoConnectTargetLabel() ?? '' });
+                disconnect('retry-relay-limit');
                 return;
               }
               if (!lastAttempt) {
@@ -957,6 +981,18 @@ function MobileAppContent({ apis }: MobileAppProps) {
     });
   }, [isNativeMobileApp, handleNativeResume]);
 
+  // The runtime tunnel can be refused over the relay's limits on a reconnect
+  // while the app is in the foreground. It then parks without a resume to
+  // wake it, and the shell would sit on "reconnecting" over a frozen session.
+  // The resume re-probe settles it: a reachable LAN takes over, otherwise the
+  // connect screen explains the refusal.
+  React.useEffect(() => {
+    if (!isNativeMobileApp) return;
+    return subscribeActiveRelayTunnelStatus((status) => {
+      if (isRelayLimitReached(status)) handleNativeResume();
+    });
+  }, [isNativeMobileApp, handleNativeResume]);
+
   React.useEffect(() => {
     registerRuntimeAPIs(apis);
     return () => registerRuntimeAPIs(null);
@@ -1019,8 +1055,8 @@ function MobileAppContent({ apis }: MobileAppProps) {
       if (cancelled) return;
       // Landing on the connect screen silently reads as data loss — say WHY
       // the saved instance didn't come back (unreachable vs revoked auth).
-      if (outcome.status === 'unreachable') {
-        setAutoConnectNotice({ kind: 'unreachable', label: outcome.label });
+      if (outcome.status === 'unreachable' || outcome.status === 'relay-limit') {
+        setAutoConnectNotice({ kind: outcome.status, label: outcome.label });
       } else if (outcome.status === 'needs-login') {
         setAutoConnectNotice({ kind: 'auth-expired', label: outcome.label });
       }
@@ -1031,7 +1067,8 @@ function MobileAppContent({ apis }: MobileAppProps) {
       // launch: retry once IN THE BACKGROUND with the full budget. A success
       // switches the runtime and the app moves in from the connect screen on
       // its own; a manual connect the user started meanwhile wins via
-      // skipIfConnected.
+      // skipIfConnected. A relay refusal over its limits gets no such retry:
+      // dialing again at once only counts against the same limits.
       setAutoConnectPhase('done');
       if (outcome.status === 'unreachable') {
         void autoConnectLastInstance({ fast: false, skipIfConnected: true }).catch(() => null);
@@ -1041,7 +1078,7 @@ function MobileAppContent({ apis }: MobileAppProps) {
       cancelled = true;
     };
     // Run once on mount — auto-connect is a cold-launch concern only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cold launch with a PERSISTED runtime endpoint (the auto-connect effect
@@ -1082,6 +1119,10 @@ function MobileAppContent({ apis }: MobileAppProps) {
         void autoConnectLastInstance({ fast: false, skipIfConnected: true }).catch(() => null);
         return;
       }
+      if (outcome === 'relay-limit') {
+        dropToConnectScreen({ kind: 'relay-limit', label: label ?? '' });
+        return;
+      }
       // 'no-connection': at cold start the runtime key may not map to a saved
       // connection yet — fall back to the auto-connect path, which both
       // classifies the failure and connects when everything is actually fine.
@@ -1089,8 +1130,8 @@ function MobileAppContent({ apis }: MobileAppProps) {
       if (cancelled || fallback.status === 'connected') return;
       if (fallback.status === 'needs-login') {
         dropToConnectScreen({ kind: 'auth-expired', label: fallback.label });
-      } else if (fallback.status === 'unreachable') {
-        dropToConnectScreen({ kind: 'unreachable', label: fallback.label });
+      } else if (fallback.status === 'unreachable' || fallback.status === 'relay-limit') {
+        dropToConnectScreen({ kind: fallback.status, label: fallback.label });
       } else {
         dropToConnectScreen(null);
       }
@@ -1100,7 +1141,7 @@ function MobileAppContent({ apis }: MobileAppProps) {
     };
     // Run once on mount — a cold-launch classification only; live drops are
     // handled by the resume/online re-probe paths.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   React.useEffect(() => {
@@ -1241,25 +1282,6 @@ function MobileAppContent({ apis }: MobileAppProps) {
   }, [isConnected, projects]);
 
   React.useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      const res = await runtimeFetch('/health', { method: 'GET' }).catch(() => null);
-      if (!res || !res.ok || cancelled) return;
-      const data = (await res.json().catch(() => null)) as null | { planModeExperimentalEnabled?: unknown };
-      if (!data || cancelled) return;
-      const raw = data.planModeExperimentalEnabled;
-      setPlanModeEnabled(raw === true || raw === 1 || raw === '1' || raw === 'true');
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [setPlanModeEnabled]);
-
-  React.useEffect(() => {
     if (!error) return;
     const timeout = window.setTimeout(() => clearError(), 5000);
     return () => window.clearTimeout(timeout);
@@ -1289,6 +1311,9 @@ function MobileAppContent({ apis }: MobileAppProps) {
   useWindowTitle();
   useRoutingSync();
   useEnterprisePolicySync();
+  // Same as App.tsx: the session's memory index and the Memory tab both read
+  // this snapshot, and without it the phone showed no memory at all.
+  useAgentMemorySync(currentDirectory || null);
   useRouter();
   // APNs is the only notification channel on the native app (background-capable,
   // focus-suppressed server-side via the visibility beacon). Local notifications are
@@ -1449,6 +1474,12 @@ export function MobileApp(props: MobileAppProps) {
     getRuntimeApiBaseUrl,
   );
   // Native connection selection must mount before there is a server to probe.
-  if (isCapacitorMobileApp() && !endpoint) return <MobileAppContent {...props} />;
-  return <OpenCodeCompatibilityGate><MobileAppContent {...props} /></OpenCodeCompatibilityGate>;
+  // The tree keeps one shape across connect/disconnect: a remount on every
+  // connect re-ran the cold-launch re-probe, and its fast-timeout verdict on a
+  // slow server dropped the runtime again, looping connect → drop → connect.
+  return (
+    <OpenCodeCompatibilityGate enabled={!isCapacitorMobileApp() || Boolean(endpoint)}>
+      <MobileAppContent {...props} />
+    </OpenCodeCompatibilityGate>
+  );
 }

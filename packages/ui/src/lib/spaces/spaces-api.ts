@@ -105,14 +105,16 @@ const grantSchema = z.discriminatedUnion('kind', [
   // The host's own browser login for a provider (7a): the record names the login's method and
   // never a token, and the id is the provider's, so a login and a key replace each other.
   z.object({ kind: z.literal('login'), id: z.string(), provider: z.string(), method: z.string(), url: z.string() }),
+  // A provider of the user's own from Settings: the host reads its address, key and models again at every start.
+  z.object({ kind: z.literal('custom'), id: z.string(), provider: z.string(), url: z.string() }),
   z.object({ kind: z.literal('domain'), id: z.string(), upstream: z.string(), url: z.string() }),
 ]);
 
 export type SpaceGrant = z.infer<typeof grantSchema>;
 
 /** The grant that gives a space a provider: a key or the host's login, under the provider's id. */
-export const providerGrantOf = (grants: readonly SpaceGrant[], providerId: string): Extract<SpaceGrant, { kind: 'model' | 'login' }> | undefined =>
-  grants.find((grant): grant is Extract<SpaceGrant, { kind: 'model' | 'login' }> => (grant.kind === 'model' || grant.kind === 'login') && grant.provider === providerId);
+export const providerGrantOf = (grants: readonly SpaceGrant[], providerId: string): Extract<SpaceGrant, { kind: 'model' | 'login' | 'custom' }> | undefined =>
+  grants.find((grant): grant is Extract<SpaceGrant, { kind: 'model' | 'login' | 'custom' }> => (grant.kind === 'model' || grant.kind === 'login' || grant.kind === 'custom') && grant.provider === providerId);
 
 /** The steps of a creation, in order, as `openchamber:space-progress` announces them. */
 const SPACE_CREATION_STEPS = ['checking_place', 'creating', 'setting_network', 'bringing_code', 'ready'] as const;
@@ -140,13 +142,19 @@ const spaceEntrySchema = z.object({
   name: z.string(),
   // The place the space lives on, as the host names it; the browser panel's container mark says it.
   placeId: z.string(),
+  // The machine of a Docker over SSH place, as the user wrote it; null for this computer, and
+  // for a place the host no longer has.
+  machine: z.string().nullable().default(null),
   projectDirectory: z.string().nullable(),
   directory: z.string().nullable(),
   // The folder the space was made for, on the host, which a space whose project is no longer
   // registered still names; `found` is whether it is there now, null when not looked at. A host
   // before 5e-3 names none.
   projectFolder: z.object({ path: z.string().nullable(), found: z.boolean().nullable() }).default({ path: null, found: null }),
-  state: z.enum(['preparing', 'running', 'exited', 'missing', 'failed']),
+  // `unreachable`: the space is on a place that cannot be asked right now, the machine of a
+  // Docker over SSH place being off among the reasons; the host lists it from its own record,
+  // with the place's failure in `failure`: `place_not_found` when the machine left Settings.
+  state: z.enum(['preparing', 'running', 'exited', 'missing', 'failed', 'unreachable']),
   // A stopped space that stopped itself after the idle hours, rather than by a hand or a crash.
   stoppedIdle: z.boolean().default(false),
   // The step a creation is at, or `failed` for a creation that failed, in this process or in one
@@ -167,18 +175,24 @@ const spaceEntrySchema = z.object({
 
 export type SpaceEntry = z.infer<typeof spaceEntrySchema>;
 
+// `machine` is the SSH destination of the Docker over SSH place, as the user wrote it; null for this computer.
 const placeSchema = z.union([
-  z.object({ id: z.string(), available: z.literal(true), hostIsolation: z.boolean(), version: z.string().default('') }),
-  z.object({ id: z.string(), available: z.literal(false), code: z.string(), message: z.string() }),
+  z.object({ id: z.string(), machine: z.string().nullable().default(null), available: z.literal(true), hostIsolation: z.boolean(), version: z.string().default('') }),
+  z.object({ id: z.string(), machine: z.string().nullable().default(null), available: z.literal(false), code: z.string(), message: z.string() }),
 ]);
 
 export type SpacePlace = z.infer<typeof placeSchema>;
+
+/** The id of the Docker over SSH place, the one place a machine can be set for. */
+export const SSH_PLACE_ID = 'docker-ssh';
 
 export type SpaceStart = 'clean' | 'uncommitted';
 
 export type CreateSpaceRequest = {
   projectDirectory: string;
   name: string;
+  /** The place to make the space on; the host takes its first place without it. */
+  placeId: string;
   start: SpaceStart;
   network: SpaceNetwork;
   /** The project's setup commands, resolved as for a new worktree, trust included. */
@@ -188,6 +202,7 @@ export type CreateSpaceRequest = {
 export type GrantRequest =
   | { kind: 'model'; provider: string; upstream: string; secret: { kind: 'typed'; value: string } | { kind: 'env'; name: string } }
   | { kind: 'login'; provider: string }
+  | { kind: 'custom'; provider: string }
   | { kind: 'domain'; upstream: string };
 
 // A browser login of the host's a space can be given (7c), never its token: `usable` can be said
@@ -201,6 +216,22 @@ const hostLoginSchema = z.object({
 });
 
 export type SpaceHostLogin = z.infer<typeof hostLoginSchema>;
+
+// A provider the user defined in Settings → Providers, as a space can be given it: never a key.
+// `hasKey` says whether the host has one to give, `loopback` whether its address names the machine
+// the space runs on, and `supported` whether the gatekeeper can carry its SDK's key.
+const customProviderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  package: z.string(),
+  baseURL: z.string().nullable(),
+  loopback: z.boolean(),
+  models: z.array(z.string()),
+  hasKey: z.boolean(),
+  supported: z.boolean(),
+});
+
+export type SpaceCustomProvider = z.infer<typeof customProviderSchema>;
 
 const errorBodySchema = z.object({ code: z.string(), message: z.string(), details: failureDetailsSchema.nullable().optional().catch(null) });
 
@@ -235,6 +266,14 @@ export const setSpacesSwitch = (enabled: boolean): Promise<SpacesSwitchChange> =
 
 export const listSpacePlaces = async (signal?: AbortSignal): Promise<SpacePlace[]> =>
   (await request(`${SPACES_ROUTE}/places`, z.object({ places: z.array(placeSchema) }), { signal })).places;
+
+/**
+ * Sets the machine of the Docker over SSH place, the empty string taking the place away, and
+ * answers that place checked, or null. The host refuses with `place_has_spaces` while spaces
+ * are on the machine, and with `invalid_machine` for anything but `[user@]host[:port]`.
+ */
+export const setSpaceMachine = async (machine: string): Promise<SpacePlace | null> =>
+  (await request(`${SPACES_ROUTE}/machine`, z.object({ place: placeSchema.nullable() }), { method: 'PUT', body: JSON.stringify({ machine }) })).place;
 
 // The disk a place's spaces take, in bytes: the image (null when it is not there), the tools and
 // the spaces' own volumes, and what a clean-up would free now, the image among it or not.
@@ -280,6 +319,10 @@ export const createSpace = (body: CreateSpaceRequest): Promise<SpaceEntry> =>
 /** The host's browser logins a space can be given, by provider; a host that cannot be asked throws. */
 export const readSpaceHostLogins = async (signal?: AbortSignal): Promise<SpaceHostLogin[]> =>
   (await request(`${SPACES_ROUTE}/logins`, z.object({ logins: z.array(hostLoginSchema) }), { signal })).logins;
+
+/** The providers of the user's own a space of this project can be given, read from the host's configuration; a host that cannot be asked throws. */
+export const readSpaceCustomProviders = async (projectDirectory: string, signal?: AbortSignal): Promise<SpaceCustomProvider[]> =>
+  (await request(`${SPACES_ROUTE}/custom-providers?directory=${encodeURIComponent(projectDirectory)}`, z.object({ providers: z.array(customProviderSchema) }), { signal })).providers;
 
 export const grantSpaceAccess = async (spaceId: string, body: GrantRequest): Promise<SpaceGrant> =>
   (await request(`${SPACES_ROUTE}/${spaceId}/grants`, z.object({ grant: grantSchema }), { method: 'POST', body: JSON.stringify(body) })).grant;

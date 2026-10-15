@@ -36,11 +36,13 @@
 
 import crypto from 'node:crypto';
 import fsPromises from 'node:fs/promises';
+import path from 'node:path';
 
 import { z } from 'zod';
 
 import { SpaceError } from './errors.js';
 import { DEFAULT_IDLE_STOP, idleStopSchema } from './idle-stop.js';
+import { headerOfPackage, windowUpstreamOf } from './host-providers.js';
 import { ROLE_GATEKEEPER, createSpaceId, hashProjectDirectory, spaceResourceName } from './labels.js';
 import { spaceProjectPath, spaceWindowUrl } from './layout.js';
 import { LOGIN_PROVIDERS, loginEndOf, loginEnded, loginGrantOf } from './space-opencode.js';
@@ -51,6 +53,8 @@ import { createSpaceSetup, setupCommandsSchema } from './space-setup.js';
 // The four choices of the create dialog, parsed at the boundary. Each field refuses with a code
 // of its own, so the dialog can point at the field.
 const createRequestSchema = z.object({
+  // The place the space is made on; the first configured place, local Docker, unless the dialog says another.
+  placeId: z.string().min(1).optional(),
   projectDirectory: z.string().min(1),
   name: z.string().trim().min(1),
   start: z.enum(['clean', 'uncommitted']).default('uncommitted'),
@@ -60,6 +64,7 @@ const createRequestSchema = z.object({
   setupCommands: setupCommandsSchema.default([]),
 });
 const CREATE_REFUSALS = {
+  placeId: ['place_not_found', 'A space is made on one of the configured places.'],
   projectDirectory: ['project_not_registered', 'A space is made for a project this OpenChamber knows. Add the project first, then create the space.'],
   name: ['invalid_space_name', 'A space needs a name.'],
   start: ['invalid_snapshot_mode', 'A space starts from a clean commit or with the uncommitted changes.'],
@@ -85,6 +90,8 @@ const grantRequestSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('domain'), upstream: grantSchema.options[1].shape.upstream }).strict(),
   // The host's browser login for a provider; the token is read from the host's OpenCode here.
   z.object({ kind: z.literal('login'), provider: providerIdSchema }).strict(),
+  // A provider the user defined on the host; its address, key and models are read from the host's configuration here.
+  z.object({ kind: z.literal('custom'), provider: providerIdSchema }).strict(),
 ]);
 // The header the window sets for a provider: what its API reads a key from. Only providers
 // named here are taken: one that reads its key another way or signs its requests, Azure,
@@ -119,6 +126,8 @@ const failureOf = (error) => ({
 });
 
 /**
+ * `manager` is the space manager over every place, which routes a space's operations to the place
+ * it lives on, and `places` the place registry, asked by id for a check, the disk and the image.
  * `listProjectDirectories` answers the host's registered projects; a space is made for one of them
  * and its label carries the project's hash. `announce(spaceId, payload)` enters an event into the
  * host's hub, `onSpacesChanged()` tells the host to read its list again at once. `spaceOpenCode`
@@ -127,7 +136,9 @@ const failureOf = (error) => ({
  * `readHostLogin(provider)` reads the host's own browser login for a provider from its OpenCode,
  * `{ methodID, access, expires, metadata }` or null, for a login grant; it is never stored either.
  * `loginWindowOf(provider, login)` is the window grant that login makes, `space-opencode.js`'s
- * unless a live test points the upstream at a stand-in.
+ * unless a live test points the upstream at a stand-in. `hostProviders` reads the providers the
+ * user defined in the host's OpenCode configuration, `host-providers.js`, for a custom grant:
+ * `read(providerId, directory)` one with its key, `list(directory)` all of them without.
  * `serverInside.writeToken(spaceId, token)` replaces the token the server inside reads when it
  * starts, and `restartOpenCodeInside(spaceId)` asks the server inside to restart its OpenCode.
  * `readIdleStop()` and `saveIdleStop(setting)` read and keep the user's idle stop setting, and
@@ -135,11 +146,12 @@ const failureOf = (error) => ({
  * `archiveChats({ spaceId, name, projectDirectory, running, allowUnsaved })` saves a space's chats
  * to the host's archive before it goes, see `space-archive.js`; without it the chats go with it.
  * `folderExists(directory)` says whether the project folder a space was made for is still a
- * folder on the host, for the list.
+ * folder on the host, for the list. `resolveDirectory` is the host's `path.resolve`, injectable so a
+ * test can resolve Windows paths on another system.
  */
 export function createSpaceJourney({
   manager,
-  place,
+  places,
   gatekeeper,
   codeIn,
   codeOut,
@@ -152,9 +164,11 @@ export function createSpaceJourney({
   readHostSecret = () => undefined,
   readHostLogin = async () => null,
   loginWindowOf = loginGrantOf,
+  hostProviders = { read: async () => null, list: async () => [] },
   readIdleStop = async () => ({ ...DEFAULT_IDLE_STOP }),
   saveIdleStop = async () => {},
   folderExists = async (directory) => (await fsPromises.stat(directory).catch(() => null))?.isDirectory() === true,
+  resolveDirectory = path.resolve,
   announce = () => {},
   onSpacesChanged = () => {},
   logger = console,
@@ -178,12 +192,32 @@ export function createSpaceJourney({
   // The project's setup commands inside a space, since 5d-4; each step is announced so the
   // clients read the list again.
   const setup = createSpaceSetup({
-    exec: place.exec,
+    exec: manager.exec,
     records,
     announce: (spaceId) => announce(spaceId, { type: 'openchamber:space-setup', properties: { spaceId, timestamp: now().getTime() } }),
     logger,
     now,
   });
+
+  const requirePlace = (placeId) => {
+    const place = places.get(placeId);
+    if (!place) throw new SpaceError('place_not_found', `There is no place ${placeId}`);
+    return place;
+  };
+
+  // Which places could not be asked at the last list, so a place going away or coming back is
+  // logged once and not at every read of the list.
+  let unavailablePlaces = '';
+  const listAll = async () => {
+    const listed = await manager.listAllSpaces();
+    const names = listed.unavailable.map((entry) => entry.placeId).sort().join(',');
+    if (names !== unavailablePlaces) {
+      for (const { placeId, failure } of listed.unavailable) logger.warn?.(`[spaces] place ${placeId} cannot be asked, its spaces are listed from the records: ${failure?.code ?? failure?.message ?? failure}`);
+      if (names === '') logger.info?.('[spaces] every place answers again');
+      unavailablePlaces = names;
+    }
+    return listed;
+  };
 
   const exclusive = async (spaceId, work) => {
     if (busy.has(spaceId)) throw new SpaceError('space_busy', 'Another action on this space is still running. Wait for it to finish.');
@@ -208,12 +242,16 @@ export function createSpaceJourney({
     return new Map(directories.map((directory) => [hashProjectDirectory(directory), directory]));
   };
 
+  // The UI sends a project's folder in its own spelling, with forward slashes on Windows, while the
+  // settings keep the system's; both resolve to the same path. The space is made for the folder as
+  // the settings name it.
   const requireRegisteredProject = async (directory) => {
+    const resolved = resolveDirectory(directory);
     const projects = await registeredProjects();
-    if (projects.get(hashProjectDirectory(directory)) !== directory) {
+    if (projects.get(hashProjectDirectory(resolved)) !== resolved) {
       throw new SpaceError(...CREATE_REFUSALS.projectDirectory);
     }
-    return directory;
+    return resolved;
   };
 
   const progress = (entry, step, failure = null) => {
@@ -226,11 +264,17 @@ export function createSpaceJourney({
   /** Removes the space and everything the host kept for it, and says what did not go. */
   const removeEverything = async (spaceId, repository) => {
     const outcome = { removed: false, refsRemoved: null, failures: [] };
+    // The record goes with the space. It stays when the space could not be removed, so a space
+    // whose place cannot be asked keeps its place in the list until the machine answers and the
+    // delete goes through; the one exception is a place that is no longer configured, where
+    // nothing from here can reach the space and the record is all there is to forget.
+    let forgetRecord = true;
     try {
-      await manager.removeSpace({ placeId: place.id, spaceId });
+      await manager.removeSpace({ spaceId });
       outcome.removed = true;
     } catch (error) {
       outcome.failures.push(failureOf(error));
+      forgetRecord = error instanceof SpaceError && error.code === 'place_not_found';
     }
     if (repository) {
       try {
@@ -247,7 +291,7 @@ export function createSpaceJourney({
         }
       }
     }
-    records.remove(spaceId);
+    if (forgetRecord) records.remove(spaceId);
     return outcome;
   };
 
@@ -282,19 +326,20 @@ export function createSpaceJourney({
       });
   };
 
-  const prepare = async (entry, { projectDirectory, name, start, network, setupCommands }) => {
+  const prepare = async (entry, { placeId, projectDirectory, name, start, network, setupCommands }) => {
     let created = false;
     try {
       progress(entry, 'checking_place');
-      const check = await place.check();
+      const check = await requirePlace(placeId).check();
       if (!check.available) throw new SpaceError(check.code, check.message);
       if (network.mode === 'allowlist' && check.hostIsolation !== true) {
         throw new SpaceError('place_cannot_restrict_network', 'This place cannot keep a space away from the machine it runs on, so an allowlist would not hold. Use a newer Docker engine, or choose the open network with that in mind.');
       }
       progress(entry, 'creating');
-      await manager.createSpace({ id: entry.id, placeId: place.id, projectDirectory, name });
+      await manager.createSpace({ id: entry.id, placeId, projectDirectory, name });
       created = true;
-      records.write(entry.id, { network, repository: projectDirectory });
+      // With the place, the name and the time, so the space is still listed while its place cannot be asked.
+      records.write(entry.id, { placeId, name: entry.name, created: entry.created, network, repository: projectDirectory });
       progress(entry, 'setting_network');
       await gatekeeper.setNetwork(entry.id, network);
       progress(entry, 'bringing_code');
@@ -333,12 +378,14 @@ export function createSpaceJourney({
       throw new SpaceError(code, message);
     }
     const { name, start, network, setupCommands } = parsed.data;
+    const placeId = parsed.data.placeId ?? places.list()[0]?.id;
+    requirePlace(placeId);
     const projectDirectory = await requireRegisteredProject(parsed.data.projectDirectory);
     const id = createSpaceId();
     const entry = {
       id,
       name,
-      placeId: place.id,
+      placeId,
       projectDirectory,
       directory: spaceProjectPath(id, projectDirectory),
       created: now().toISOString(),
@@ -349,12 +396,50 @@ export function createSpaceJourney({
       setupTotal: setupCommands.length,
     };
     pending.set(entry.id, entry);
-    void prepare(entry, { projectDirectory, name, start, network, setupCommands });
+    void prepare(entry, { placeId, projectDirectory, name, start, network, setupCommands });
     return describePending(entry);
   };
 
   /** A grant as the list and the grant route show it: everything the record holds, which holds no value. */
   const describeGrant = (grant) => ({ ...grant, url: spaceWindowUrl(grant.id) });
+
+  /** Whether a grant has an entry in OpenCode's configuration inside: a key, a login or a custom provider. */
+  const configuresProvider = (grant) => grant.kind === 'model' || grant.kind === 'login' || grant.kind === 'custom';
+
+  /**
+   * The window grant a custom provider's definition makes, or null for one the window cannot
+   * serve: its base URL with "this machine" sent to the Docker host, its key under the header its
+   * SDK reads, no header and no key for a provider that has none, and the provider's own headers
+   * beside either, which the gatekeeper keeps with the key and the space never sees.
+   */
+  const customWindowOf = (definition) => {
+    if (!definition) return null;
+    const upstream = definition.baseURL === null ? null : windowUpstreamOf(definition.baseURL);
+    const header = headerOfPackage(definition.package);
+    if (upstream === null || header === null) return null;
+    const window = definition.key === null ? { upstream, header: null, secret: null } : { upstream, header, secret: definition.key };
+    if (Object.keys(definition.headers).length > 0) window.headers = definition.headers;
+    return window;
+  };
+
+  /**
+   * The host's definition of every custom provider among the grants, by id, without a key, for
+   * the configuration inside. One the host cannot read now is left out and logged; the next start reads again.
+   */
+  const customDefinitionsOf = async (grants, repository) => {
+    const definitions = new Map();
+    for (const grant of grants) {
+      if (grant.kind !== 'custom') continue;
+      const definition = await hostProviders.read(grant.provider, repository).catch(() => null);
+      if (!definition) {
+        logger.warn?.(`[spaces] the custom provider ${grant.provider} is not in the host's configuration now; the space is not told about it`);
+        continue;
+      }
+      const { key: _key, ...rest } = definition;
+      definitions.set(grant.provider, rest);
+    }
+    return definitions;
+  };
 
   /**
    * Says one grant of the record to the gatekeeper. Resolves whether it could: a typed key is
@@ -362,10 +447,11 @@ export function createSpaceJourney({
    * now; a gatekeeper that refuses or does not answer counts the same way and is logged, because
    * the space runs either way and the list must say that its access is missing.
    */
-  const deliverGrant = async (spaceId, grant, login = null) => {
+  const deliverGrant = async (spaceId, grant, login = null, repository = null) => {
     let secret = null;
-    let upstream = grant.kind === 'login' ? null : grant.upstream;
+    let upstream = grant.kind === 'login' || grant.kind === 'custom' ? null : grant.upstream;
     let header = grant.kind === 'model' ? grant.header : null;
+    let headers;
     if (grant.kind === 'model') {
       if (grant.source.kind === 'typed') return false;
       secret = readHostSecret(grant.source.name);
@@ -376,8 +462,15 @@ export function createSpaceJourney({
       if (!window) return false;
       ({ upstream, header, secret } = window);
     }
+    if (grant.kind === 'custom') {
+      const window = customWindowOf(await hostProviders.read(grant.provider, repository).catch(() => null));
+      if (!window) return false;
+      ({ upstream, header, secret, headers } = window);
+    }
     try {
-      await gatekeeper.addGrant(spaceId, { id: grant.id, upstream, header, secret });
+      const said = { id: grant.id, upstream, header, secret };
+      if (headers) said.headers = headers;
+      await gatekeeper.addGrant(spaceId, said);
       return true;
     } catch (error) {
       logger.warn?.(`[spaces] the grant ${grant.id} of space ${spaceId} could not be said again: ${error?.code ?? error?.message ?? error}`);
@@ -390,10 +483,10 @@ export function createSpaceJourney({
    * stop in the home volume, but a write that failed at the grant is repaired only here. It
    * cooperates and enforces nothing, so a failure is logged and the start goes on.
    */
-  const rewriteProviderConfig = async (spaceId, grants) => {
-    if (!grants.some((grant) => grant.kind === 'model' || grant.kind === 'login')) return;
+  const rewriteProviderConfig = async (spaceId, grants, repository) => {
+    if (!grants.some((grant) => configuresProvider(grant))) return;
     try {
-      await spaceOpenCode.writeProviderConfig(spaceId, grants);
+      await spaceOpenCode.writeProviderConfig(spaceId, grants, await customDefinitionsOf(grants, repository));
     } catch (error) {
       logger.warn?.(`[spaces] the provider configuration of space ${spaceId} was not written again: ${error?.code ?? error?.message ?? error}`);
     }
@@ -412,12 +505,12 @@ export function createSpaceJourney({
   };
 
   /** Every grant of the record said again after a start. Resolves the ids that went and the ids that need the user. */
-  const restoreGrants = async (spaceId, grants) => {
+  const restoreGrants = async (spaceId, grants, repository) => {
     const restored = [];
     const needsAccess = [];
     for (const grant of grants) {
       const login = grant.kind === 'login' ? await usableHostLogin(grant) : null;
-      (await deliverGrant(spaceId, grant, login) ? restored : needsAccess).push(grant.id);
+      (await deliverGrant(spaceId, grant, login, repository) ? restored : needsAccess).push(grant.id);
     }
     return { restored, needsAccess };
   };
@@ -487,6 +580,16 @@ export function createSpaceJourney({
     return { logins };
   };
 
+  /**
+   * The providers the user defined in the host's OpenCode configuration for a project, as the
+   * grant dialogs offer them, never a key: a catalog provider overridden there is not among them,
+   * since the dialogs offer those under their own names.
+   */
+  const readHostCustomProviders = async (directory) => {
+    const providers = (await hostProviders.list(directory)).filter((provider) => !HEADER_BY_PROVIDER.has(provider.id) && !LOGIN_PROVIDERS.includes(provider.id));
+    return { providers };
+  };
+
   /** Waits for a login row repair that is writing now; its failure is its own and logged there. */
   const afterRowRepair = (spaceId) => (rowRepairs.get(spaceId) ?? Promise.resolve()).catch(() => {});
 
@@ -513,14 +616,15 @@ export function createSpaceJourney({
   const restoreLostGrants = async () => {
     let spaces;
     try {
-      spaces = await manager.listSpaces({ placeId: place.id });
+      ({ spaces } = await listAll());
     } catch (error) {
       logger.warn?.(`[spaces] could not list the spaces to say their grants again: ${error?.code ?? error?.message ?? error}`);
       return;
     }
     for (const space of spaces) {
       if (space.state !== 'running' || busy.has(space.id)) continue;
-      const grants = (records.read(space.id).record?.grants ?? []).filter((grant) => grant.kind !== 'model' || grant.source.kind === 'env');
+      const record = records.read(space.id).record;
+      const grants = (record?.grants ?? []).filter((grant) => grant.kind !== 'model' || grant.source.kind === 'env');
       if (grants.length === 0) continue;
       let held;
       try {
@@ -532,7 +636,7 @@ export function createSpaceJourney({
       const lost = grants.filter((grant) => !held.has(grant.id));
       if (lost.length === 0) continue;
       try {
-        const { restored } = await exclusive(space.id, () => restoreGrants(space.id, lost));
+        const { restored } = await exclusive(space.id, () => restoreGrants(space.id, lost, record.repository));
         if (restored.length > 0) logger.info?.(`[spaces] said the grants ${restored.join(', ')} of space ${space.id} again`);
       } catch (error) {
         logger.warn?.(`[spaces] the grants of space ${space.id} were not said again: ${error?.code ?? error?.message ?? error}`);
@@ -573,7 +677,7 @@ export function createSpaceJourney({
     if (!space.damaged) return null;
     if (!space.missing.includes(spaceResourceName(space.id, ROLE_GATEKEEPER))) return 'repairable';
     try {
-      const violations = await place.verify(space.id);
+      const violations = await manager.verify(space.id);
       return violations.some((violation) => violation.check === 'gatekeeper_missing') ? 'gatekeeper_gone' : 'repairable';
     } catch (error) {
       if (error instanceof SpaceError && error.code === 'gatekeeper_missing') return 'gatekeeper_gone';
@@ -586,6 +690,7 @@ export function createSpaceJourney({
     id: entry.id,
     name: entry.name,
     placeId: entry.placeId,
+    machine: places.get(entry.placeId)?.machine ?? null,
     projectDirectory: entry.projectDirectory,
     directory: entry.directory,
     projectFolder: { path: entry.projectDirectory, found: null },
@@ -619,7 +724,10 @@ export function createSpaceJourney({
    * folder is there now, and is null while a creation is under way or when nothing names it.
    */
   const listSpaces = async ({ access = false } = {}) => {
-    const [spaces, projects] = await Promise.all([manager.listSpaces({ placeId: place.id }), registeredProjects()]);
+    const [{ spaces, unavailable }, projects] = await Promise.all([listAll(), registeredProjects()]);
+    // An unreachable space carries its place's failure, so the group can say why and whether a
+    // delete would do anything: `place_not_found` forgets the record, any other failure removes nothing.
+    const placeFailureOf = (placeId) => failureOf(unavailable.find((entry) => entry.placeId === placeId)?.failure);
     const listed = await Promise.all(spaces.map(async (space) => {
       const projectDirectory = projects.get(space.project) ?? null;
       const { record } = records.read(space.id);
@@ -629,11 +737,13 @@ export function createSpaceJourney({
       // the containers run, the code never arrived, and the user would otherwise send the agent
       // into an empty folder. It is listed as a failed creation, whose one way out is Remove; a
       // creation under way in this process is replaced by its own entry below.
-      const codeNeverArrived = record !== null && record.spacePath === null;
+      const codeNeverArrived = space.state !== 'unreachable' && record !== null && record.spacePath === null;
       return {
         id: space.id,
         name: space.name,
         placeId: space.placeId,
+        // The machine of a Docker over SSH place, for the screens; null locally and for a place that is gone.
+        machine: places.get(space.placeId)?.machine ?? null,
         projectDirectory,
         directory: projectDirectory === null ? null : spaceProjectPath(space.id, projectDirectory),
         projectFolder: { path: projectPath, found: projectPath === null ? null : await folderExists(projectPath) },
@@ -641,7 +751,9 @@ export function createSpaceJourney({
         state: codeNeverArrived ? 'failed' : space.state,
         stoppedIdle: space.stoppedIdle === true,
         step: codeNeverArrived ? 'failed' : null,
-        failure: codeNeverArrived ? { code: 'space_code_never_arrived', message: 'OpenChamber closed before the code arrived. Delete the space and create it again.', details: null } : null,
+        failure: codeNeverArrived
+          ? { code: 'space_code_never_arrived', message: 'OpenChamber closed before the code arrived. Delete the space and create it again.', details: null }
+          : space.state === 'unreachable' ? placeFailureOf(space.placeId) : null,
         network: record?.network ?? null,
         history: record?.history ?? 'unknown',
         setup: setup.describe(space.id, record),
@@ -673,7 +785,7 @@ export function createSpaceJourney({
    */
   const stopStrayGatekeeper = (spaceId) => {
     if (busy.has(spaceId) || strayStops.has(spaceId)) return;
-    const stopping = manager.stopSpace({ placeId: place.id, spaceId })
+    const stopping = manager.stopSpace({ spaceId })
       .catch((error) => {
         logger.warn?.(`[spaces] the gatekeeper beside stopped space ${spaceId} still runs: ${error?.code ?? error?.message ?? error}`);
       })
@@ -697,15 +809,15 @@ export function createSpaceJourney({
     if (closing) throw new SpaceError('isolated_spaces_off', 'Isolated spaces are being turned off.');
     requireNotPending(spaceId);
     await strayStops.get(spaceId);
-    await manager.startSpace({ placeId: place.id, spaceId });
+    await manager.startSpace({ spaceId });
     const { record } = records.read(spaceId);
     let networkRestored = false;
     let grants = { restored: [], needsAccess: [] };
     if (record) {
       await gatekeeper.setNetwork(spaceId, record.network);
       networkRestored = true;
-      grants = await restoreGrants(spaceId, record.grants);
-      await rewriteProviderConfig(spaceId, record.grants);
+      grants = await restoreGrants(spaceId, record.grants, record.repository);
+      await rewriteProviderConfig(spaceId, record.grants, record.repository);
       if (record.grants.some((grant) => grant.kind === 'model' || grant.kind === 'login')) repairLoginRowInBackground(spaceId);
       // A history that never arrived, or that failed, is sent again: a stop right after the
       // creation is the usual way it fails, and the space would otherwise stay shallow for good.
@@ -737,7 +849,7 @@ export function createSpaceJourney({
     } catch (error) {
       logger.warn?.(`[spaces] the server inside space ${spaceId} keeps its token: ${error?.code ?? error?.message ?? error}`);
     }
-    await manager.stopSpace({ placeId: place.id, spaceId });
+    await manager.stopSpace({ spaceId });
     return startUnlocked(spaceId);
   });
 
@@ -786,7 +898,14 @@ export function createSpaceJourney({
     let grant;
     let window;
     let login = null;
-    if (asked.kind === 'model') {
+    if (asked.kind === 'custom') {
+      const definition = await hostProviders.read(asked.provider, current.record.repository);
+      if (!definition) throw new SpaceError('provider_not_found', `${asked.provider} is not a provider of your own in Settings. Add it there, then grant.`);
+      if (headerOfPackage(definition.package) === null) throw new SpaceError('provider_not_supported', `${definition.name} cannot be given through the network filter yet: its SDK reads a key in a way the network filter does not know.`);
+      window = customWindowOf(definition);
+      if (!window) throw new SpaceError('provider_not_supported', `${definition.name} has no http(s) address in Settings.`);
+      grant = { kind: 'custom', id: asked.provider, provider: asked.provider };
+    } else if (asked.kind === 'model') {
       const source = asked.secret.kind === 'typed' ? { kind: 'typed' } : { kind: 'env', name: asked.secret.name };
       const secret = asked.secret.kind === 'typed' ? asked.secret.value : readHostSecret(asked.secret.name);
       if (typeof secret !== 'string' || secret === '') {
@@ -809,7 +928,7 @@ export function createSpaceJourney({
     // keep the login's headers and model list for requests the window now sends with the key; a
     // removal that fails answers the grant before anything changed.
     const replaced = current.record.grants.find((entry) => entry.id === grant.id);
-    if (grant.kind === 'model' && replaced?.kind === 'login') await spaceOpenCode.removeLogin(spaceId, grant.provider);
+    if (grant.kind !== 'login' && replaced?.kind === 'login') await spaceOpenCode.removeLogin(spaceId, grant.provider);
     await gatekeeper.addGrant(spaceId, { id: grant.id, ...window });
     const grants = [...current.record.grants.filter((entry) => entry.id !== grant.id), grant];
     if (records.update(spaceId, { grants }).status !== 'ok') {
@@ -817,7 +936,7 @@ export function createSpaceJourney({
     }
     // A failure here answers the grant with it; the key is in the gatekeeper and the record, and
     // the next start writes the configuration and the row again.
-    if (grant.kind === 'model' || grant.kind === 'login') await spaceOpenCode.writeProviderConfig(spaceId, grants);
+    if (configuresProvider(grant)) await spaceOpenCode.writeProviderConfig(spaceId, grants, await customDefinitionsOf(grants, current.record.repository));
     if (grant.kind === 'login') await spaceOpenCode.writeLogin(spaceId, grant.provider, login);
     return { grant: describeGrant(grant) };
   });
@@ -875,7 +994,7 @@ export function createSpaceJourney({
 
   const stopSpace = (spaceId) => exclusive(spaceId, async () => {
     requireNotPending(spaceId);
-    await manager.stopSpace({ placeId: place.id, spaceId });
+    await manager.stopSpace({ spaceId });
     onSpacesChanged();
     return requireListed(spaceId);
   });
@@ -893,7 +1012,7 @@ export function createSpaceJourney({
     let started = false;
     if (!running && space.state === 'exited') {
       try {
-        await manager.startSpace({ placeId: place.id, spaceId: space.id });
+        await manager.startSpace({ spaceId: space.id });
         running = true;
         started = true;
       } catch (error) {
@@ -904,7 +1023,7 @@ export function createSpaceJourney({
       return await archiveChats({ spaceId: space.id, name: space.name, projectDirectory: space.projectDirectory ?? null, running, allowUnsaved });
     } catch (error) {
       if (started) {
-        await manager.stopSpace({ placeId: place.id, spaceId: space.id }).catch((stopError) => {
+        await manager.stopSpace({ spaceId: space.id }).catch((stopError) => {
           logger.warn?.(`[spaces] space ${space.id} started for its chats is still running: ${stopError?.code ?? stopError?.message ?? stopError}`);
         });
       }
@@ -925,7 +1044,7 @@ export function createSpaceJourney({
       pending.delete(spaceId);
       // A failed creation whose clean-up failed still has containers; those go now, or the space
       // comes back in the list as damaged. One that was cleaned up has nothing left to remove.
-      const still = (await manager.listSpaces({ placeId: place.id })).some((space) => space.id === spaceId);
+      const still = (await listAll()).spaces.some((space) => space.id === spaceId);
       if (!still) return { id: spaceId, removed: true, refsRemoved: null, failures: [], chats: null };
       return { id: spaceId, ...(await removeEverything(spaceId, waiting.projectDirectory)), chats: null };
     }
@@ -952,8 +1071,9 @@ export function createSpaceJourney({
     if (preparing.length > 0) throw new SpaceError('space_preparing', `${preparing.length === 1 ? 'A space is' : `${preparing.length} spaces are`} still being made. Wait for that to finish first.`, { spaces: preparing.map((entry) => entry.id) });
     closing = true;
     let spaces;
+    let unavailable;
     try {
-      spaces = await manager.listSpaces({ placeId: place.id });
+      ({ spaces, unavailable } = await listAll());
     } catch (error) {
       logger.warn?.(`[spaces] turning off without knowing which spaces run: ${error?.code ?? error?.message ?? error}`);
       return { stopped: [], stillRunning: [], unknown: failureOf(error) };
@@ -961,19 +1081,26 @@ export function createSpaceJourney({
     const stopped = [];
     const stillRunning = [];
     for (const space of spaces) {
+      // A space on a place that cannot be asked may well run, and nothing from here stops it.
+      if (space.state === 'unreachable') {
+        const failure = unavailable.find((entry) => entry.placeId === space.placeId)?.failure;
+        stillRunning.push({ id: space.id, name: space.name, ...failureOf(failure) });
+        continue;
+      }
       if (space.state !== 'running') {
         // A gatekeeper left by an idle stop goes too, and the space is not counted: it was stopped.
-        if (space.gatekeeperRunning === true && !busy.has(space.id)) await manager.stopSpace({ placeId: place.id, spaceId: space.id }).catch(() => {});
+        if (space.gatekeeperRunning === true && !busy.has(space.id)) await manager.stopSpace({ spaceId: space.id }).catch(() => {});
         continue;
       }
       try {
-        await manager.stopSpace({ placeId: place.id, spaceId: space.id });
+        await manager.stopSpace({ spaceId: space.id });
         stopped.push({ id: space.id, name: space.name });
       } catch (error) {
         stillRunning.push({ id: space.id, name: space.name, ...failureOf(error) });
       }
     }
-    return { stopped, stillRunning };
+    // A place that could not be asked may run spaces the host does not remember: the answer says so.
+    return unavailable.length === 0 ? { stopped, stillRunning } : { stopped, stillRunning, unknown: failureOf(unavailable[0].failure) };
   };
 
   /** The user's idle stop setting, as the settings screen shows it. */
@@ -990,7 +1117,7 @@ export function createSpaceJourney({
     const setting = parsed.data;
     const change = idleStopTurn.then(async () => {
       await saveIdleStop(setting);
-      const spaces = await manager.listSpaces({ placeId: place.id });
+      const { spaces } = await listAll();
       for (const space of spaces) {
         if (space.state === 'running' && !pending.has(space.id)) await writeIdleStop(space.id, setting);
       }
@@ -1000,15 +1127,8 @@ export function createSpaceJourney({
     return change;
   };
 
-  const requirePlace = (placeId) => {
-    if (placeId !== place.id) throw new SpaceError('place_not_found', `There is no place ${placeId}`);
-  };
-
   /** The disk the spaces take on a place, and what a clean-up would free now (journey step 9). */
-  const readDisk = async (placeId) => {
-    requirePlace(placeId);
-    return place.readDisk();
-  };
+  const readDisk = async (placeId) => requirePlace(placeId).readDisk();
 
   /**
    * Removes what OpenChamber can make again on a place, see `places/docker-disk.js`; Docker keeps
@@ -1016,7 +1136,7 @@ export function createSpaceJourney({
    * tools before any container holds them. Answers what was freed, what Docker kept, and the disk after.
    */
   const cleanUpDisk = async (placeId) => {
-    requirePlace(placeId);
+    const place = requirePlace(placeId);
     if (Array.from(pending.values()).some((entry) => entry.state === 'preparing')) {
       throw new SpaceError('space_preparing', 'A space is being made. Clean up when it is ready.');
     }
@@ -1039,13 +1159,16 @@ export function createSpaceJourney({
    * and `imageFailure` says why the image is still absent after a download that failed.
    */
   const pullImage = async (placeId) => {
-    requirePlace(placeId);
+    const place = requirePlace(placeId);
     place.pullImage().catch((error) => { logger.warn?.(`[spaces] the image download failed: ${error.code ?? error.message}`); });
     return place.readDisk();
   };
 
   /** For a turn-off that did not go through after the spaces were stopped: creations are taken again. */
   const reopen = () => { closing = false; };
+
+  /** Whether no creation and no action is under way: a host may be replaced only then, since both live in its memory. */
+  const isIdle = () => busy.size === 0 && Array.from(pending.values()).every((entry) => entry.state !== 'preparing');
 
   /** What the gatekeeper allowed and refused since it last started; a stopped space has no journal. */
   const readJournal = (spaceId) => exclusive(spaceId, async () => {
@@ -1105,5 +1228,5 @@ export function createSpaceJourney({
     return { brought, applied, removal, kept };
   });
 
-  return { createSpace, listSpaces, startSpace, stopSpace, restartSpace, restartOpenCode, removeSpace, stopAllSpaces, reopen, grantAccess, sayLogin, readHostLogins, openDomain, restoreLostGrants, readJournal, previewApply, applySpace, readIdleStopSetting, changeIdleStop, runSetup, readSetup, readDisk, cleanUpDisk, pullImage };
+  return { createSpace, listSpaces, startSpace, stopSpace, restartSpace, restartOpenCode, removeSpace, stopAllSpaces, reopen, isIdle, grantAccess, sayLogin, readHostLogins, readHostCustomProviders, openDomain, restoreLostGrants, readJournal, previewApply, applySpace, readIdleStopSetting, changeIdleStop, runSetup, readSetup, readDisk, cleanUpDisk, pullImage };
 }
