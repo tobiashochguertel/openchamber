@@ -68,7 +68,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.UPSTREAM_SYNC_PAT }}
 
       - name: Configure git
         run: |
@@ -184,7 +184,7 @@ jobs:
         with:
           ref: dev.patch
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.UPSTREAM_SYNC_PAT }}
 
       - name: Configure git
         run: |
