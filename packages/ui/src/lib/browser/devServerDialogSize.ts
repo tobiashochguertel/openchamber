@@ -20,8 +20,15 @@ let cache: { raw: string | null; value: StoredSizes } | null = null;
 const read = (): StoredSizes => {
   const raw = getSafeStorage().getItem(STORAGE_KEY);
   if (cache && cache.raw === raw) return cache.value;
-  const parsed = storeSchema.safeParse(raw === null ? null : JSON.parse(raw));
-  const value = parsed.success ? parsed.data : {};
+  let value: StoredSizes = {};
+  if (raw !== null) {
+    try {
+      const parsed = storeSchema.safeParse(JSON.parse(raw));
+      if (parsed.success) value = parsed.data;
+    } catch {
+      value = {};
+    }
+  }
   cache = { raw, value };
   return value;
 };
