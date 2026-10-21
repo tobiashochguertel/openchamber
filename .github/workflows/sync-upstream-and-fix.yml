@@ -69,7 +69,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.UPSTREAM_SYNC_PAT }}
 
       - name: Configure git
         run: |
@@ -113,6 +113,15 @@ jobs:
             echo "Upstream has new commits to merge into main."
           fi
 
+      # .github/scripts + .github/patches only exist on dev.patch.
+      # Restore them into the worktree (untracked) so the revert/apply
+      # steps can run; they are excluded from the patches commit.
+      - name: Fetch patch machinery from dev.patch
+        if: steps.check-uptodate.outputs.up_to_date != 'true'
+        run: |
+          git fetch origin dev.patch --quiet
+          git restore --source=origin/dev.patch --worktree -- .github/scripts .github/patches
+
       - name: Revert patched files to upstream version
         if: steps.check-uptodate.outputs.up_to_date != 'true'
         run: |
@@ -144,10 +153,25 @@ jobs:
         if: steps.check-uptodate.outputs.up_to_date != 'true'
         run: .github/scripts/apply_patches.sh
 
+      - name: Set up Bun
+        if: steps.check-uptodate.outputs.up_to_date != 'true'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        if: steps.check-uptodate.outputs.up_to_date != 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Run tests on patched areas
+        if: steps.check-uptodate.outputs.up_to_date != 'true'
+        run: |
+          (cd packages/ui && node ../../scripts/run-isolated-tests.mjs src/lib/browser)
+          (cd packages/ui && node ../../scripts/run-isolated-tests.mjs src/components/browser)
+          (cd packages/web && node ../../scripts/run-isolated-tests.mjs server/lib/dev-servers)
+
       - name: Commit patches
         if: steps.check-uptodate.outputs.up_to_date != 'true'
         run: |
-          git add -A
+          git add -A -- . ':(exclude).github/scripts' ':(exclude).github/patches'
           git diff --cached --quiet || git commit -m "fix: re-apply custom patches after upstream merge
 
           Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
@@ -185,7 +209,7 @@ jobs:
         with:
           ref: dev.patch
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.UPSTREAM_SYNC_PAT }}
 
       - name: Configure git
         run: |
@@ -258,6 +282,21 @@ jobs:
       - name: Apply all patches
         if: steps.check-uptodate.outputs.up_to_date != 'true'
         run: .github/scripts/apply_patches.sh
+
+      - name: Set up Bun
+        if: steps.check-uptodate.outputs.up_to_date != 'true'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        if: steps.check-uptodate.outputs.up_to_date != 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Run tests on patched areas
+        if: steps.check-uptodate.outputs.up_to_date != 'true'
+        run: |
+          (cd packages/ui && node ../../scripts/run-isolated-tests.mjs src/lib/browser)
+          (cd packages/ui && node ../../scripts/run-isolated-tests.mjs src/components/browser)
+          (cd packages/web && node ../../scripts/run-isolated-tests.mjs server/lib/dev-servers)
 
       - name: Commit patches
         if: steps.check-uptodate.outputs.up_to_date != 'true'
