@@ -7,10 +7,34 @@
  */
 import { runtimeFetch } from '@/lib/runtime-fetch';
 
+export type DevServerDockerInfo = {
+  readonly id: string;
+  readonly name: string;
+  readonly image: string;
+  readonly labels: Readonly<Record<string, string>>;
+};
+
+export type DevServerForwardInfo = {
+  readonly host: string;
+  readonly port: number;
+};
+
 export type DiscoveredDevServer = {
   readonly port: number;
   readonly url: string;
   readonly command: string;
+  /** Container that published this port, when the owner is a Docker forward. */
+  readonly docker?: DevServerDockerInfo;
+  /** -L target this port forwards to, when the owner is an ssh process. */
+  readonly forward?: DevServerForwardInfo;
+  /** Where this listener comes from: container, ssh forward, OS, or user process. */
+  readonly source?: 'docker' | 'forward' | 'system' | 'process';
+  /** Compose project or working-directory name, when it could be resolved. */
+  readonly project?: string;
+  /** Full argv of the owning process. */
+  readonly commandLine?: string;
+  /** Working directory of the owning process. */
+  readonly cwd?: string;
 };
 
 export type DevServerDiscovery =
@@ -77,11 +101,40 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
   }
 };
 
-type DevServerCandidate = {
+export type DevServerCandidate = {
   readonly url: string;
   readonly port: number;
+  /** The owning process's command name, or '' when discovery did not supply one. */
+  readonly command: string;
   /** Present when a server announced this address itself. */
   readonly announced: boolean;
+  readonly docker?: DevServerDockerInfo;
+  readonly forward?: DevServerForwardInfo;
+  readonly source?: 'docker' | 'forward' | 'system' | 'process';
+  readonly project?: string;
+  readonly commandLine?: string;
+  readonly cwd?: string;
+};
+
+/**
+ * What a row says under the address: the container that published the port,
+ * the host a forward points at, the project a process belongs to, the owning
+ * process, or the base path. A bare `ssh` or `node` says less than any of these.
+ */
+export const devServerContextLabel = (candidate: DevServerCandidate): string => {
+  if (candidate.docker) return candidate.docker.name;
+  if (candidate.forward) return `${candidate.forward.host}:${candidate.forward.port}`;
+  if (candidate.project) return candidate.project;
+  return candidate.command || pathLabel(candidate.url);
+};
+
+const pathLabel = (url: string): string => {
+  try {
+    const path = new URL(url).pathname;
+    return path === '/' ? '' : path;
+  } catch {
+    return '';
+  }
 };
 
 const portOf = (url: string): number | null => {
@@ -122,7 +175,7 @@ export const mergeDevServerCandidates = ({
 
   if (!discovered) {
     return [...announcedByPort.entries()]
-      .map(([port, url]) => ({ url, port, announced: true }))
+      .map(([port, url]) => ({ url, port, command: '', announced: true }))
       .sort((left, right) => left.port - right.port);
   }
 
@@ -132,7 +185,14 @@ export const mergeDevServerCandidates = ({
       return {
         url: announcedUrl ?? server.url,
         port: server.port,
+        command: server.command,
         announced: announcedUrl !== undefined,
+        docker: server.docker,
+        forward: server.forward,
+        source: server.source,
+        project: server.project,
+        commandLine: server.commandLine,
+        cwd: server.cwd,
       };
     })
     .sort((left, right) => {
