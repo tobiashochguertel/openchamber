@@ -10,7 +10,7 @@ import type { IconName } from '@/components/icon/icons';
  *
  * Every readout is a labelled row — icon, name, trailing value — so a glance
  * answers "what is this number" without hovering. Sections carry a heading and
- * are separated by a hairline; the panel itself stays chrome-less, since it is
+ * are separated by space alone; the panel itself stays chrome-less, since it is
  * an object inside the chat rather than a docked pane.
  */
 
@@ -22,8 +22,7 @@ import type { IconName } from '@/components/icon/icons';
  */
 const SECTION_CLASS = cn(
   'flex flex-col',
-  '[&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t',
-  '[&:not(:first-child)]:border-[var(--interactive-border)] [&:not(:first-child)]:pt-3',
+  '[&:not(:first-child)]:mt-5',
 );
 
 const HEADING_CLASS = 'text-xs font-semibold text-foreground';
@@ -101,7 +100,7 @@ export const WorkStatusCollapsibleSection: React.FC<{
           {iconNode ?? (icon ? (
             <Icon
               name={icon}
-              className={cn('size-4 shrink-0', !iconColor && 'text-muted-foreground')}
+              className={cn('size-3.5 shrink-0', !iconColor && 'text-muted-foreground')}
               style={iconColor ? { color: iconColor } : undefined}
             />
           ) : null)}
@@ -159,7 +158,7 @@ export const WorkStatusRow: React.FC<RowProps> = ({
       {leading ?? (icon ? (
         <Icon
           name={icon}
-          className={cn('size-4 shrink-0', !iconColor && 'text-muted-foreground')}
+          className={cn('size-3.5 shrink-0', !iconColor && 'text-muted-foreground')}
           style={iconColor ? { color: iconColor } : undefined}
         />
       ) : null)}
@@ -199,9 +198,11 @@ export const WorkStatusRow: React.FC<RowProps> = ({
   if (!tooltip) return row;
 
   return (
-    <Tooltip delayDuration={750}>
+    // Above the row, as on every dense row, so it never covers the rows
+    // under it or the actions beside it.
+    <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>{row}</TooltipTrigger>
-      <TooltipContent side="left" sideOffset={8} className="max-w-[min(320px,calc(100vw-24px))] whitespace-normal break-words text-start">
+      <TooltipContent side="top" sideOffset={4} className="max-w-[min(320px,calc(100vw-24px))] whitespace-normal break-words text-start">
         {tooltip}
       </TooltipContent>
     </Tooltip>
@@ -292,7 +293,7 @@ export const WorkStatusCallout: React.FC<{ children: React.ReactNode }> = ({ chi
     className="mx-1 mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium"
     style={{ backgroundColor: 'var(--status-warning-background)', color: 'var(--status-warning)' }}
   >
-    <Icon name="alert" className="size-4 shrink-0" />
+    <Icon name="alert" className="size-3.5 shrink-0" />
     <span className="min-w-0 truncate">{children}</span>
   </div>
 );

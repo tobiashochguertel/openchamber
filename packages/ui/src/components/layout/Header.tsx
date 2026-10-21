@@ -26,7 +26,7 @@ import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useQuotaAutoRefresh, useQuotaStore } from '@/stores/useQuotaStore';
 import { useGitBranchLabel } from '@/stores/useGitStore';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
-import { archiveUndoToastOptions, collectSessionSubtreeIds } from '@/components/session/sidebar/sessions/sessionSubtreeActions';
+import { archiveUndoToastOptions, collectSessionMoveDescendants, collectSessionSubtreeIds } from '@/components/session/sidebar/sessions/sessionSubtreeActions';
 import { streamPerfCount } from '@/stores/utils/streamDebug';
 
 import { useDesktopWindowControlsLayout } from '@/hooks/useDesktopWindowControlsLayout';
@@ -41,6 +41,8 @@ import {
 } from '@/components/ui/collapsible';
 import { SpaceAccessButton } from '@/components/session/spaces/SpaceAccessButton';
 import { SpaceApplyButton } from '@/components/session/spaces/SpaceApplyButton';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
+import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
 import { SessionSwitcherDropdown } from '@/components/session/SessionSwitcherDropdown';
 import { SessionTabsStrip, type SessionTabMenuArgs } from './SessionTabsStrip';
 import { SessionMenuItemHint } from '@/components/session/SessionMenuItemHint';
@@ -66,6 +68,8 @@ import { useMultiRunTitle } from '@/lib/multirun/useMultiRuns';
 import { buildSessionTreeMoveMessages, requestSessionTreeMove, useIsSessionWorktreeMovePending } from '@/lib/worktrees/sessionWorktreeMove';
 import { titlebarControlsWidthReaderRef } from './titlebarControlsWidth';
 import { useLayoutAnimationMs } from '@/hooks/useLayoutAnimationMs';
+import { LAYOUT_ANIMATION_EASING } from '@/lib/layoutAnimation';
+import { findWorktreeHoldingDirectory } from '@/lib/worktrees/worktreePaths';
 
 // Like the icon rail: muted at rest, full strength on hover, while its menu is
 // open or while what it controls is on, and no hover fill.
@@ -352,9 +356,12 @@ export const Header: React.FC = () => {
   const selectedSessionDirectory = useSessionUIStore((state) => state.currentSessionDirectory);
   const homeDirectory = useAppDirectoryStore((state) => state.homeDirectory);
 
+  // A draft waiting for a new space shows the space's branch and actions once it runs, and none
+  // of this computer's while it is made.
+  const draftSpace = useDraftSpaceTarget();
   const openDirectory = React.useMemo(() => {
-    return worktreeDirectory || sessionDirectory || draftDirectory;
-  }, [draftDirectory, sessionDirectory, worktreeDirectory]);
+    return worktreeDirectory || sessionDirectory || (panelContentDirectory(draftSpace, draftDirectory) ?? '');
+  }, [draftDirectory, draftSpace, sessionDirectory, worktreeDirectory]);
 
   const catalogWorktreeBranch = useSessionUIStore((state) => {
     const candidateDirectory = normalize(worktreeDirectory || sessionDirectory || '');
@@ -363,7 +370,7 @@ export const Header: React.FC = () => {
     }
 
     for (const worktrees of state.availableWorktreesByProject.values()) {
-      const match = worktrees.find((worktree) => normalize(worktree.path) === candidateDirectory);
+      const match = findWorktreeHoldingDirectory(worktrees, candidateDirectory);
       const branch = match?.branch?.trim();
       if (branch) {
         return branch;
@@ -526,21 +533,10 @@ export const Header: React.FC = () => {
     const root = sessions.find((session) => session.id === currentSessionId);
     if (!root) return;
 
-    const descendants: typeof sessions = [];
-    const pendingParentIds = [currentSessionId];
-    for (let index = 0; index < pendingParentIds.length; index += 1) {
-      const parentId = pendingParentIds[index];
-      for (const session of sessions) {
-        if (session.parentID !== parentId) continue;
-        descendants.push(session);
-        pendingParentIds.push(session.id);
-      }
-    }
-
     requestSessionTreeMove({
       kind: 'quick',
       root,
-      descendants,
+      descendants: collectSessionMoveDescendants(root, []),
       sourceDirectory: sessionDirectory,
       messages: buildSessionTreeMoveMessages(t, {
         success: 'sessions.sidebar.session.moveToWorktree.success',
@@ -556,19 +552,10 @@ export const Header: React.FC = () => {
     const sessions = useGlobalSessionsStore.getState().activeSessions;
     const root = sessions.find((session) => session.id === currentSessionId);
     if (!root) return;
-    const descendants: typeof sessions = [];
-    const pendingParentIds = [currentSessionId];
-    for (let index = 0; index < pendingParentIds.length; index += 1) {
-      for (const session of sessions) {
-        if (session.parentID !== pendingParentIds[index]) continue;
-        descendants.push(session);
-        pendingParentIds.push(session.id);
-      }
-    }
     requestSessionTreeMove({
       kind: 'project',
       root,
-      descendants,
+      descendants: collectSessionMoveDescendants(root, []),
       sourceDirectory: sessionDirectory,
       projectDirectory,
       messages: buildSessionTreeMoveMessages(t, {
@@ -609,6 +596,7 @@ export const Header: React.FC = () => {
   const guestPage = useGuestsStore((state) => state.guests.find((guest) => guest.id === openGuestPageId));
   const isScheduledSurfaceOpen = useUIStore((state) => state.isScheduledTasksDialogOpen);
   const isArchiveSurfaceOpen = useUIStore((state) => state.isArchivePageOpen);
+  const isIntegrationsCatalogSurfaceOpen = useUIStore((state) => state.isIntegrationsCatalogOpen);
   const isUsageStatsSurfaceOpen = useUIStore((state) => state.isUsageStatsPageOpen);
   const isSourceBoardSurfaceOpen = useUIStore((state) => state.isSourceBoardOpen);
   const worktreesSurfaceProjectId = useUIStore((state) => state.worktreesPageProjectId);
@@ -629,6 +617,9 @@ export const Header: React.FC = () => {
     if (isArchiveSurfaceOpen) {
       return { title: t('sessions.archivePage.title'), subtitle: null };
     }
+    if (isIntegrationsCatalogSurfaceOpen) {
+      return { title: t('integrationsCatalog.page.title'), subtitle: null };
+    }
     if (isUsageStatsSurfaceOpen) {
       return { title: t('usageStats.title'), subtitle: null };
     }
@@ -648,7 +639,7 @@ export const Header: React.FC = () => {
       return { title: overviewRunTitle ?? t('multirun.overview.headerTitle'), subtitle: t('multirun.overview.headerTitle') };
     }
     return null;
-  }, [guestPage, isArchiveSurfaceOpen, overviewRunTitle, runOverviewKey, isScheduledSurfaceOpen, isSourceBoardSurfaceOpen, isUsageStatsSurfaceOpen, spacesSurfaceProjectId, surfaceProjectLabel, t, worktreesSurfaceProjectId]);
+  }, [guestPage, isArchiveSurfaceOpen, isIntegrationsCatalogSurfaceOpen, overviewRunTitle, runOverviewKey, isScheduledSurfaceOpen, isSourceBoardSurfaceOpen, isUsageStatsSurfaceOpen, spacesSurfaceProjectId, surfaceProjectLabel, t, worktreesSurfaceProjectId]);
 
 
   const currentSessionOpenDirectory = sessionDirectory || normalize(selectedSessionDirectory || '') || worktreeDirectory;
@@ -1045,8 +1036,8 @@ export const Header: React.FC = () => {
           stays a window drag area. */}
       <div
         aria-hidden
-        className="shrink-0 self-stretch transition-[width] ease-out motion-reduce:transition-none"
-        style={{ width: headerInsetSpacerWidth, transitionDuration: `${layoutAnimationMs}ms` }}
+        className="shrink-0 self-stretch transition-[width] motion-reduce:transition-none"
+        style={{ width: headerInsetSpacerWidth, transitionDuration: `${layoutAnimationMs}ms`, transitionTimingFunction: LAYOUT_ANIMATION_EASING }}
       />
       {/* No-drag carve under the persistent TitlebarLeftControls overlay so its
           buttons stay clickable. Width animates with the sidebar so the session
@@ -1054,8 +1045,8 @@ export const Header: React.FC = () => {
       <div
         ref={titlebarControlsWidthReaderRef}
         aria-hidden
-        className="app-region-no-drag shrink-0 self-stretch transition-[width] ease-out motion-reduce:transition-none"
-        style={{ width: headerControlsSpacerWidth, transitionDuration: `${layoutAnimationMs}ms` }}
+        className="app-region-no-drag shrink-0 self-stretch transition-[width] motion-reduce:transition-none"
+        style={{ width: headerControlsSpacerWidth, transitionDuration: `${layoutAnimationMs}ms`, transitionTimingFunction: LAYOUT_ANIMATION_EASING }}
       />
       {/* Sidebar toggle + project actions live in the persistent
           TitlebarLeftControls overlay; the spacers above reserve its footprint

@@ -24,6 +24,7 @@ import { useGuestPages } from '@/hooks/useGuestSurfaces';
 import { guestPackageIconSrc, resolveGuestIconName } from '@/lib/guests/icon';
 import { getRuntimeUrlResolver } from '@/lib/runtime-url';
 import { useUIStore } from '@/stores/useUIStore';
+import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
 
 type Props = {
   hideDirectoryControls: boolean;
@@ -152,6 +153,10 @@ export function SidebarHeader(props: Props): React.ReactNode {
   const isSourceBoardOpen = useUIStore((state) => state.isSourceBoardOpen);
   const isScheduledOpen = useUIStore((state) => state.isScheduledTasksDialogOpen);
   const isArchiveOpen = useUIStore((state) => state.isArchivePageOpen);
+  const isIntegrationsCatalogOpen = useUIStore((state) => state.isIntegrationsCatalogOpen);
+  // The bundled catalog offers outside services; enterprise mode waits for
+  // administrator-curated sources instead.
+  const enterpriseMode = useEnterpriseMode();
   const openGuestPageId = useUIStore((state) => state.openGuestPageId);
 
   const showChatsSection = useSessionDisplayStore((state) => state.showChatsSection);
@@ -169,6 +174,8 @@ export function SidebarHeader(props: Props): React.ReactNode {
   const setWorktreeSortOrder = useSessionDisplayStore((state) => state.setWorktreeSortOrder);
   const sidebarViewMode = useSessionDisplayStore((state) => state.sidebarViewMode);
   const setSidebarViewMode = useSessionDisplayStore((state) => state.setSidebarViewMode);
+  const listSessionGrouping = useSessionDisplayStore((state) => state.listSessionGrouping);
+  const setListSessionGrouping = useSessionDisplayStore((state) => state.setListSessionGrouping);
   const projectDisplayMode = useSessionDisplayStore((state) => state.projectDisplayMode);
   const setProjectDisplayMode = useSessionDisplayStore((state) => state.setProjectDisplayMode);
   // VS Code has no mode switch and always renders the projects view.
@@ -241,8 +248,17 @@ export function SidebarHeader(props: Props): React.ReactNode {
     </>);
   }
   // The list view keeps projects in the manual order and has no worktree
-  // groups; VS Code groups by workspace only, so it sorts projects alone.
-  if (!timelineView) {
+  // groups, so it offers its own layout instead; VS Code groups by workspace
+  // only, so it sorts projects alone.
+  if (timelineView) {
+    displayMenuSections.push(choiceSubmenu('sessions.sidebar.header.listGrouping.label', [
+      ['project', 'sessions.sidebar.header.listGrouping.project'],
+      ['time', 'sessions.sidebar.header.listGrouping.time'],
+    ] as const, listSessionGrouping, (grouping) => {
+      setListSessionGrouping(grouping);
+      void updateDesktopSettings({ sidebarListSessionGrouping: grouping });
+    }));
+  } else {
     displayMenuSections.push(<>
       {choiceSubmenu('sessions.sidebar.header.actions.sortProjects', [
         ['manual', 'sessions.sidebar.header.projectSort.manual'],
@@ -351,7 +367,7 @@ export function SidebarHeader(props: Props): React.ReactNode {
                   onClick={() => useUIStore.getState().setSourceBoardOpen(!isSourceBoardOpen)}
                   className={headerActionButtonClass}
                 >
-                  <Icon name="todo" className={headerActionIconClass} />
+                  <Icon name="git-pull-request" className={headerActionIconClass} />
                 </SidebarPageButton>
               ) : null}
 
@@ -372,6 +388,17 @@ export function SidebarHeader(props: Props): React.ReactNode {
               >
                 <Icon name="archive" className={headerActionIconClass} />
               </SidebarPageButton>
+
+              {enterpriseMode ? null : (
+                <SidebarPageButton
+                  label={t('integrationsCatalog.sidebar.open')}
+                  pressed={isIntegrationsCatalogOpen}
+                  onClick={() => useUIStore.getState().setIntegrationsCatalogOpen(!isIntegrationsCatalogOpen)}
+                  className={headerActionButtonClass}
+                >
+                  <Icon name="store-2" className={headerActionIconClass} />
+                </SidebarPageButton>
+              )}
             </div>
             {guestPagesInline ? guestPages.map((guest) => {
               const pressed = openGuestPageId === guest.id;

@@ -5,6 +5,7 @@ import React from 'react';
 import { SessionActivityIndicator } from '@/components/session/SessionActivityIndicator';
 import type { Session } from '@/lib/opencode/model';
 import { ContextMenu } from '@base-ui/react/context-menu';
+import { ContextMenu as ContextMenuRoot } from '@/components/ui/context-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +24,8 @@ import { canUseElectronDesktopIPC, getMiniChatRuntimeArgs, invokeDesktop, isVSCo
 import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { isSessionPinned, useSessionPinnedStore } from '@/stores/useSessionPinnedStore';
+import { isSessionPinned } from '@/lib/sessionPins';
+import { toggleSessionPin } from '@/sync/session-pins';
 import { Icon } from "@/components/icon/Icon";
 import { buildExportFilename, downloadAsMarkdown, formatSessionAsMarkdown, getExportRevealLabelKey, revealExportedMarkdown, saveAsMarkdownDesktop } from '@/lib/exportSession';
 import type { ChildSessionExport } from '@/lib/exportSession';
@@ -43,14 +45,15 @@ import { DraggableSessionRow } from '../folders/sessionFolderDnd';
 import { useSessionRowOrderRegistry } from './sessionRowOrder';
 import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContainsSessionId, nodeHasPinnedMembershipChange, resolveSessionPrLookup, resolveTooltipBranchLabel, selectBlockingBadgeSessionScopes, type BlockingBadgeSessionScope } from './sessionNodeItemUtils';
 import { useSessionRowMenuState } from './useSessionRowMenuState';
+import { buildActiveSessionTreeFromCache, collectSessionMoveDescendants } from './sessionSubtreeActions';
 import type { SessionNode } from '../types';
-import { hasTreeSlotContext, isTwoLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
+import { hasTreeSlotContext, isMultiLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
 import { SessionTimelineRowBody } from './SessionTimelineRowBody';
 import { sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
 import { FileTreeChevron } from '@/components/views/files/FileTreeRowParts';
 import { formatProjectLabel, formatSessionCompactDateLabel, formatSessionDateLabel, normalizePath, renderHighlightedText } from '../utils';
 import { useProjectsStore } from '@/stores/useProjectsStore';
-import { useOpenOnBoard } from '@/components/sourceBoard/openOnBoard';
+import { useOpenTrackerItem } from '@/components/sourceBoard/openTrackerItem';
 import { RowMarkTooltip } from './RowMarkTooltip';
 import { SessionMenuItemHint } from '../../SessionMenuItemHint';
 import { SIDEBAR_REF_TOOLTIP_CLOSE_DELAY_MS, SidebarRefLinks, type SidebarRefLink } from './SidebarRefLinks';
@@ -72,6 +75,8 @@ import { getSessionGoal } from '@/lib/sessionGoalMetadata';
 import { getCurrentSessionAssist } from '@/lib/sessionAssistMetadata';
 import { isDoneSuggested, isSessionInWork } from '@/lib/sessionWorkMetadata';
 import { setSessionWorkState } from '@/sync/session-actions';
+import { useSessionWarmingStore, useSessionWarmUntil } from '@/stores/useSessionWarmingStore';
+import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { sessionGoalStatusColor, sessionGoalStatusLabelKey } from '@/lib/sessionGoalPresentation';
 import { getChatsRootFromDirectory, isChatDirectoryPath } from '@/lib/chatDirectories';
 import { getMultiRunIdentity, sameMultiRunIdentity } from '@/lib/multirun/identity';
@@ -341,7 +346,6 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     dragKey,
     children,
   } = props;
-  const togglePinnedSession = useSessionPinnedStore((state) => state.toggle);
   const getFoldersForScope = useSessionFoldersStore((state) => state.getFoldersForScope);
   const getSessionFolderId = useSessionFoldersStore((state) => state.getSessionFolderId);
   const removeSessionFromFolder = useSessionFoldersStore((state) => state.removeSessionFromFolder);
@@ -406,22 +410,26 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // Flat rows: no tree gutter, live state on the right. Chats and the Tree
   // view's Pinned and In work rows keep it on one line.
   const isOneLineTimelineRow = renderContext === 'timeline-chat' || renderContext === 'tree-chat' || renderContext === 'mixed-compact';
-  const isTimelineRow = isTwoLineTimelineContext(renderContext) || isOneLineTimelineRow;
+  const isTimelineRow = isMultiLineTimelineContext(renderContext) || isOneLineTimelineRow;
+  // List sorted by time: no project headers, so the row names its project
+  // on a line of its own.
+  const hasProjectLine = renderContext === 'timeline-by-time';
   // The Tree view's one-line Chats, Pinned and In work rows never expand, but
   // they keep the tree's slot and geometry, so their state reads down the
   // same left edge as the tree under them. List rows stay flat.
   const hasTreeSlot = hasTreeSlotContext(renderContext);
   // While the Pinned section is shown it holds every pinned zone session, and
-  // its header already says they are pinned; In work then has none of them.
-  const isZoneRow = renderContext === 'timeline-mixed' || renderContext === 'mixed-compact';
+  // its header already says they are pinned; In work then has none of them,
+  // and neither has the list by time, whose rows share the zones' context.
+  const isZoneRow = renderContext === 'timeline-mixed' || renderContext === 'mixed-compact' || renderContext === 'timeline-by-time';
   const pinnedSectionShown = useSessionDisplayStore((state) => state.showPinnedSection);
   const hidePinnedMarker = isZoneRow && pinnedSectionShown;
-  // Two-line rows in Pinned and In work show the project's own icon; the row
-  // reads exactly that one project record, and `find` keeps the reference
-  // stable between renders.
+  // Rows that mix projects (two-line Pinned and In work rows, the list by
+  // time) show the project's own icon; the row reads exactly that one project
+  // record, and `find` keeps the reference stable between renders.
   const timelineProject = useProjectsStore(
     React.useCallback((state) => {
-      if (renderContext !== 'timeline-mixed' || !projectId) return null;
+      if ((renderContext !== 'timeline-mixed' && renderContext !== 'timeline-by-time') || !projectId) return null;
       return state.projects.find((entry) => entry.id === projectId) ?? null;
     }, [renderContext, projectId]),
   );
@@ -556,11 +564,18 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   }, [linkedGitLabIssueStates, linkedIssueStates, linkedIssues, linkedLinearStates, linkedPrsWithoutState, prSummaries, t, uncolouredChanges]);
   const primaryRef = refLines[0] ?? null;
   const moreRefCount = Math.max(0, refLines.length - 1);
-  const openOnBoard = useOpenOnBoard();
+  const openTrackerItem = useOpenTrackerItem();
   const refBadgeLabel = refLines.map((line) => line.text).join(', ');
   const isActive = useSessionUIStore((state) => state.currentSessionId === session.id);
 
   const sessionDirectory = normalizePath(session.directory ?? null) ?? normalizePath(groupDirectory ?? null);
+  // Ref chips open their item in the Tracker through the row's project. The
+  // project's root path resolves without the live worktree map, which a
+  // session in a worktree outside the root does not until that map arrives.
+  const projectRootDirectory = useProjectsStore((state) =>
+    projectId ? state.projects.find((entry) => entry.id === projectId)?.path ?? null : null,
+  );
+  const trackerDirectory = projectRootDirectory ?? sessionDirectory;
   // Multi-select scope: sessions are flat per project, so selection groups by
   // project (falling back to the directory when no project is known) — a
   // selection must survive mixing sessions from different worktrees.
@@ -610,6 +625,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
 
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
   const [exportIncludeSubtasks, setExportIncludeSubtasks] = React.useState(true);
+  // The tree the open export dialog offers. A flat row's own node has no
+  // children, so the tree is resolved when the user picks Export Markdown.
+  const [exportTree, setExportTree] = React.useState<SessionNode | null>(null);
 
   const legacyContextKey = `${renderContext}:${archivedBucket ? 'archived' : 'active'}:${session.id}`;
   const menuInstanceKey = rowKey ? `session-menu:${rowKey}` : legacyContextKey;
@@ -641,6 +659,20 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       toast.error(t('sessions.sidebar.session.work.updateFailed'));
     }
   };
+  // Per-session warming is offered only while Settings chose it, for a root
+  // session the host's OpenCode runs (a space's sessions run on its own).
+  const perSessionWarming = useSessionWarmingStore((state) => state.enabled);
+  const isWarmed = useSessionWarmUntil(session.id) !== undefined;
+  const canKeepWarm = perSessionWarming && !archivedBucket && !node.session.parentID
+    && Boolean(sessionDirectory) && !isSpaceDirectory(sessionDirectory);
+  const toggleSessionWarm = async () => {
+    if (!sessionDirectory) return;
+    try {
+      await useSessionWarmingStore.getState().setSessionWarm(session.id, sessionDirectory, !isWarmed);
+    } catch {
+      toast.error(t('sessions.warming.toggleFailed'));
+    }
+  };
   // SAFETY: sessionGoalStatusLabelKey contains an i18n key for every SessionGoalStatus.
   const sessionGoalLabel = sessionGoal ? t(sessionGoalStatusLabelKey[sessionGoal.status] as never) : '';
   const sessionGoalGlyph = sessionGoal ? (
@@ -651,9 +683,11 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     </RowMarkTooltip>
   ) : null;
   const sessionTitle = resolvedSession.title || t('sessions.sidebar.session.untitled');
-  // Timeline is a flat list: a node that still carries children renders as a
-  // leaf, without a chevron and without an expansion state.
-  const hasChildren = !isTimelineRow && node.children.length > 0;
+  // Rows with the tree slot open to their subsessions, the Tree view's
+  // Chats, Pinned and In work rows included. List is a flat list: a node that
+  // still carries children renders as a leaf, without a chevron and without
+  // an expansion state.
+  const hasChildren = hasTreeSlot && node.children.length > 0;
   const isPinnedSession = isSessionPinned(pinnedSessionIds, sessionDirectory, session.id);
   // Per-render-context expansion key: the same session can appear in both
   // the project's root and the "Recent" list, and expanding one should not
@@ -682,7 +716,6 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     handleMenuOpenChange,
     handleContextMenuOpenChange,
     handleMenuOpenChangeComplete,
-    toggleMenu,
   } = useSessionRowMenuState({
     menuInstanceKey,
     contextMenuInstanceKey,
@@ -701,7 +734,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   const isSessionMenuOpen = isMenuOpen || isContextMenuOpen;
   const multiRunKey = React.useMemo(() => getMultiRunIdentity(resolvedSession)?.key ?? null, [resolvedSession]);
 
-  const descendantCount = React.useMemo(() => collectNodeDescendantIds(node).length, [collectNodeDescendantIds, node]);
+  const descendantCount = React.useMemo(() => (exportTree ? collectNodeDescendantIds(exportTree).length : 0), [collectNodeDescendantIds, exportTree]);
 
   const collectChildExports = React.useCallback(async (children: SessionNode[]): Promise<{ children: ChildSessionExport[]; skipped: number }> => {
     const results: ChildSessionExport[] = [];
@@ -736,7 +769,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       : t('sessions.sidebar.session.export.skippedSubtaskMany', { count }));
   }, [t]);
 
-  const doExportSession = React.useCallback(async (includeSubtasks: boolean) => {
+  const doExportSession = React.useCallback(async (includeSubtasks: boolean, tree: SessionNode) => {
     if (!sessionDirectory) {
       toast.error(t('sessions.sidebar.session.export.nothingToExport'));
       return;
@@ -754,8 +787,8 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
 
     let childExports: ChildSessionExport[] | undefined;
     let skippedSubtaskCount = 0;
-    if (includeSubtasks && node.children.length > 0) {
-      const collected = await collectChildExports(node.children);
+    if (includeSubtasks && tree.children.length > 0) {
+      const collected = await collectChildExports(tree.children);
       childExports = collected.children;
       skippedSubtaskCount = collected.skipped;
     }
@@ -784,7 +817,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     downloadAsMarkdown(markdown, filename);
     toast.success(t('sessions.sidebar.session.export.success'));
     showSkippedSubtasksWarning(skippedSubtaskCount);
-  }, [collectChildExports, loadExportRecords, node.children, resolvedSession.title, session.id, sessionDirectory, showSkippedSubtasksWarning, t]);
+  }, [collectChildExports, loadExportRecords, resolvedSession.title, session.id, sessionDirectory, showSkippedSubtasksWarning, t]);
   const guestActionEntries = useGuestActions();
   const guestSessionActionEntries = React.useMemo(() => guestSessionActions(guestActionEntries), [guestActionEntries]);
   const handleGuestSessionAction = React.useCallback((entry: GuestActionEntry) => {
@@ -799,13 +832,15 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     });
   }, [loadExportRecords, resolvedSession.title, session.id, sessionDirectory, t]);
   const handleExportSession = React.useCallback(async () => {
-    if (node.children.length > 0) {
+    const tree = node.children.length > 0 ? node : buildActiveSessionTreeFromCache(resolvedSession);
+    if (tree.children.length > 0) {
+      setExportTree(tree);
       setExportIncludeSubtasks(true);
       setExportDialogOpen(true);
       return;
     }
-    await doExportSession(false);
-  }, [doExportSession, node.children.length]);
+    await doExportSession(false, tree);
+  }, [doExportSession, node, resolvedSession]);
 
   const handleOpenMiniChatWindow = React.useCallback(() => {
     if (!sessionDirectory) return;
@@ -934,6 +969,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
             compact={isOneLineTimelineRow}
             project={timelineProject}
             projectLabel={tooltipProjectLabel}
+            projectLine={hasProjectLine}
             title={renameForm}
             titleClassName="text-foreground"
             branchLabel={tooltipBranchLabel}
@@ -1074,19 +1110,18 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     ? <Icon name="error-warning" className="h-4 w-4 text-status-warning" />
     : null;
 
+  // Base UI's trigger handlers open the menu, so it records the click and
+  // stays open when the pointer leaves it. A menu opened only through `open`
+  // has no open event, and Base UI closes it on pointer leave like a hover menu.
   const handleMenuTriggerClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
     event.stopPropagation();
-    toggleMenu();
   };
 
   const handleMenuTriggerPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault();
     event.stopPropagation();
   };
 
   const handleMenuTriggerMouseDown = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
     event.stopPropagation();
   };
 
@@ -1297,7 +1332,14 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       </Item>
       </SessionMenuItemHint>
       <SessionMenuItemHint hint={isPinnedSession ? t('sessions.sidebar.session.menuHint.unpin') : t('sessions.sidebar.session.menuHint.pin')}>
-      <Item onClick={() => sessionDirectory && togglePinnedSession({ directory: sessionDirectory, sessionId: session.id })} className="[&>svg]:me-1">
+      <Item
+        onClick={() => {
+          if (!sessionDirectory) return;
+          const failedKey = isPinnedSession ? 'sessions.sidebar.session.pin.unpinFailed' : 'sessions.sidebar.session.pin.pinFailed';
+          toggleSessionPin({ directory: sessionDirectory, sessionId: session.id }).catch(() => toast.error(t(failedKey)));
+        }}
+        className="[&>svg]:me-1"
+      >
         {isPinnedSession ? <Icon name="unpin" className="me-1 h-4 w-4" /> : <Icon name="pushpin" className="me-1 h-4 w-4" />}
         {isPinnedSession ? t('sessions.sidebar.session.menu.unpin') : t('sessions.sidebar.session.menu.pin')}
       </Item>
@@ -1307,6 +1349,14 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         <Item onClick={() => { void toggleSessionWork(); }} className="[&>svg]:me-1">
           <Icon name={isInWork ? 'check' : 'eye'} className="me-1 h-4 w-4" />
           {isInWork ? t('sessions.sidebar.session.work.markDone') : t('sessions.sidebar.session.work.track')}
+        </Item>
+        </SessionMenuItemHint>
+      ) : null}
+      {canKeepWarm ? (
+        <SessionMenuItemHint hint={isWarmed ? t('sessions.sidebar.session.menuHint.stopWarm') : t('sessions.sidebar.session.menuHint.keepWarm')}>
+        <Item onClick={() => { void toggleSessionWarm(); }} className="[&>svg]:me-1">
+          <Icon name={isWarmed ? 'fire-fill' : 'fire'} className="me-1 h-4 w-4" />
+          {isWarmed ? t('sessions.sidebar.session.menu.stopWarm') : t('sessions.sidebar.session.menu.keepWarm')}
         </Item>
         </SessionMenuItemHint>
       ) : null}
@@ -1375,7 +1425,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                       requestSessionTreeMove({
                         kind: 'existing',
                         root: resolvedSession,
-                        descendants: collectNodeDescendantSessions(node),
+                        descendants: collectSessionMoveDescendants(resolvedSession, collectNodeDescendantSessions(node)),
                         sourceDirectory: sessionDirectory,
                         destination: target.metadata,
                         messages: buildSessionTreeMoveMessages(t, {
@@ -1408,7 +1458,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                     requestSessionTreeMove({
                       kind: 'quick',
                       root: resolvedSession,
-                      descendants: collectNodeDescendantSessions(node),
+                      descendants: collectSessionMoveDescendants(resolvedSession, collectNodeDescendantSessions(node)),
                       sourceDirectory: sessionDirectory,
                       messages: buildSessionTreeMoveMessages(t, {
                         success: 'sessions.sidebar.session.moveToWorktree.success',
@@ -1636,7 +1686,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
             event.stopPropagation();
             // The `+N` only counts the others; the tooltip lists them.
             if (event.target instanceof Element && event.target.closest('[data-ref-more]')) return;
-            if (primaryRef.url) openOnBoard(primaryRef.url, sessionDirectory, event);
+            if (primaryRef.url) openTrackerItem(primaryRef.url, trackerDirectory, event);
           }}
           onKeyDown={(event) => event.stopPropagation()}
         >
@@ -1649,7 +1699,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6} className="max-w-xs">
-        <SidebarRefLinks items={refLines} directory={sessionDirectory} />
+        <SidebarRefLinks items={refLines} directory={trackerDirectory} />
       </TooltipContent>
     </Tooltip>
   ) : null;
@@ -1658,9 +1708,10 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // one-line form, with the session's live state and time on the right.
   const rowBody = (
     <SessionTimelineRowBody
-      compact={!isTwoLineTimelineContext(renderContext)}
+      compact={!isMultiLineTimelineContext(renderContext)}
       project={timelineProject}
       projectLabel={tooltipProjectLabel}
+      projectLine={hasProjectLine}
       title={renderHighlightedText(sessionTitle, normalizedSessionSearchQuery)}
       // A finished turn nobody has seen and a request waiting on the user
       // read like an unread mail; a running turn at full strength; the rest
@@ -1770,7 +1821,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   return (
     <React.Fragment key={session.id}>
       <DraggableSessionRow sessionId={session.id} dragKey={dragKey ?? sessionRowKey} ownerKey={folderOwnerKey ?? selectionScopeKey} sessionDirectory={sessionDirectory ?? null} sessionTitle={sessionTitle} archivedBucket={archivedBucket}>
-        <ContextMenu.Root open={isContextMenuOpen} onOpenChange={handleContextMenuOpenChange} onOpenChangeComplete={handleMenuOpenChangeComplete}>
+        <ContextMenuRoot open={isContextMenuOpen} onOpenChange={handleContextMenuOpenChange} onOpenChangeComplete={handleMenuOpenChangeComplete}>
           <ContextMenu.Trigger
             render={
               <div
@@ -1866,7 +1917,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                         <span className="min-w-0 truncate">{tooltipBranchLabel}</span>
                       </div>
                     ) : null}
-                    {refLines.length > 0 ? <SidebarRefLinks items={refLines} directory={sessionDirectory} /> : null}
+                    {refLines.length > 0 ? <SidebarRefLinks items={refLines} directory={trackerDirectory} /> : null}
                     {currentRecap ? (
                       <p className="min-w-0 line-clamp-4 text-muted-foreground">{currentRecap}</p>
                     ) : null}
@@ -1988,7 +2039,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           </div>
           </ContextMenu.Trigger>
           {contextMenuContent}
-        </ContextMenu.Root>
+        </ContextMenuRoot>
       </DraggableSessionRow>
       {hasChildren && isExpanded ? children : null}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
@@ -2023,7 +2074,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
               type="button"
               onClick={() => {
                 setExportDialogOpen(false);
-                void doExportSession(exportIncludeSubtasks);
+                void doExportSession(exportIncludeSubtasks, exportTree ?? node);
               }}
               size="sm"
             >
