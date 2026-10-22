@@ -9,13 +9,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -82,13 +85,16 @@ export const dict = {
   ...surfacePanelI18n.tr,
   ...fileArtifactsI18n.tr,
   ...fileContentSearchI18n.tr,
+  ...fileEditorAidsI18n.tr,
   ...htmlRenderI18n.tr,
   ...sessionNoticesI18n.tr,
   ...usageStatsI18n.tr,
   ...webSearchI18n.tr,
   ...sessionWarmingI18n.tr,
+  ...overviewI18n.tr,
   ...isolatedSpacesI18n.tr,
   ...sourceBoardI18n.tr,
+  ...stacksI18n.tr,
   ...projectActionsI18n.tr,
   ...gitIdentityEditorI18n.tr,
   ...environmentI18n.tr,
@@ -615,6 +621,7 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Tamamlandı olarak işaretle',
   'sessions.sidebar.session.work.doneSuggested': 'Tamamlanmış görünüyor',
   'sessions.sidebar.session.work.updateFailed': 'Oturum güncellenemedi',
+  'sessions.sidebar.session.work.folderDeleted': 'Bu oturumun klasörü silindi',
   'sessions.sidebar.session.pin.pinFailed': 'Oturum sabitlenemedi',
   'sessions.sidebar.session.pin.unpinFailed': 'Oturumun sabitlemesi kaldırılamadı',
   'chat.work.doneHint.text': 'Bu iş tamamlanmış görünüyor.',
@@ -1101,6 +1108,7 @@ export const dict = {
   'gitView.sync.syncCounts': '{behind}↓ {ahead}↑',
   'gitView.branch.actionsUnavailable': 'Bu repository durumunda branch işlemleri kullanılamıyor',
   'gitView.conflict.noDetailsAvailable': 'Çakışma detayları mevcut değil',
+  'magicPrompts.toast.loadFailed': 'Sihirli Promptlar yüklenemedi. Hiçbir şey gönderilmedi.',
   'gitView.empty.notGitRepository': 'Bu dizin bir Git repository\'si değil',
   'gitView.empty.notGitRepositoryDescription': 'Bu dizinde Git\'i başlatın veya bir repository açın.',
   'gitView.empty.retryDiscovery': 'Yeniden dene',
@@ -3830,39 +3838,6 @@ export const dict = {
   'contextPanel.browser.devServers.hide': '{port} bağlantı noktasını bu listede gizle',
   'contextPanel.browser.devServers.showHiddenSingle': '{count} gizli bağlantı noktasını göster',
   'contextPanel.browser.devServers.showHiddenPlural': '{count} gizli bağlantı noktasını göster',
-  'contextPanel.browser.devServers.name': '{port} bağlantı noktasını adlandır',
-  'contextPanel.browser.devServers.nameDialog.title': 'Bu geliştirme sunucusunu adlandır',
-  'contextPanel.browser.devServers.nameDialog.placeholder': 'örn. HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': '{port} bağlantı noktası için bu makinede saklanır.',
-  'contextPanel.browser.devServers.nameDialog.reset': 'Sıfırla',
-  'contextPanel.browser.devServers.nameDialog.save': 'Kaydet',
-  'contextPanel.browser.devServers.configure': 'Geliştirme sunucularını yapılandır',
-  'contextPanel.browser.devServers.settings.title': 'Geliştirme sunucuları',
-  'contextPanel.browser.devServers.settings.filtersTab': 'Filtreler',
-  'contextPanel.browser.devServers.settings.hiddenTab': 'Gizli',
-  'contextPanel.browser.devServers.settings.namesTab': 'Adlar',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Her satırda bir kural; baştaki ! eşleşmeleri gizler. Terimler: alan=değer, alan~parça, alan!=değer ya da varlık için tek başına alan. Alanlar: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} geçersiz kural',
-  'contextPanel.browser.devServers.settings.matchCount': '{total} içinden {visible} gösteriliyor',
-  'contextPanel.browser.devServers.settings.hiddenCount': '{count} gizli',
-  'contextPanel.browser.devServers.settings.noHidden': 'Gizli bağlantı noktası yok',
-  'contextPanel.browser.devServers.settings.noNames': 'Adlandırılmış bağlantı noktası yok',
-  'contextPanel.browser.devServers.settings.show': 'Göster',
-  'contextPanel.browser.devServers.settings.showPort': '{port} bağlantı noktasını göster',
-  'contextPanel.browser.devServers.settings.showAll': 'Tümünü göster',
-  'contextPanel.browser.devServers.settings.clearName': '{port} bağlantı noktasının adını kaldır',
-  'contextPanel.browser.devServers.settings.rulesLabel': 'Kurallar',
-  'contextPanel.browser.devServers.settings.inspectLabel': 'İncele',
-  'contextPanel.browser.devServers.settings.appendRule': '{field} alanını kurallara ekle',
-  'contextPanel.browser.devServers.settings.expandServer': '{port} bağlantı noktası alanlarını göster',
-  'contextPanel.browser.devServers.settings.noServers': 'İncelenecek sunucu yok',
-  'contextPanel.browser.devServers.settings.resize': 'İletişim penceresini yeniden boyutlandır',
-  'contextPanel.browser.devServers.settings.manualHidden': 'Elle gizlenenler',
-  'contextPanel.browser.devServers.settings.hiddenByRules': 'Kurallarla gizlenenler',
-  'contextPanel.browser.devServers.settings.byRule': 'gizleyen kural: {rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': 'hiçbir keep kuralıyla eşleşmiyor',
-  'contextPanel.browser.devServers.settings.namePlaceholder': 'Bu bağlantı noktası için ad',
-  'contextPanel.browser.devServers.settings.namePort': '{port} bağlantı noktasını adlandır',
   'sidebarFilesTree.menu.openInDefaultApp': 'Varsayılan uygulamada aç',
   'sessions.sidebar.header.displayMode.showChats': 'Sohbetler bölümünü göster',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Oturum varsayılanlarını kullan',
@@ -3886,4 +3861,8 @@ export const dict = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': 'Bu görevin bir çalıştırması zaten sürüyor',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': 'Bu görev zaten kuyrukta bekliyor; yer açılınca çalışacak',
   'chat.modelControls.agentFavoriteAdd': 'Favorilere ekle. Favori varsa Tab yalnızca onlar arasında geçiş yapar',
+  'notifications.error.bodyFallback': 'Bir hata oluştu',
+  'notifications.question.bodyFallback': 'Ajan yanıtınızı bekliyor',
+  'notifications.permission.bodyFallback': 'Ajan onayınızı bekliyor',
+  'notifications.permission.title': 'İzin gerekiyor',
 };

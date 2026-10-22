@@ -9,13 +9,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -143,13 +146,16 @@ export const dict = {
   ...surfacePanelI18n.de,
   ...fileArtifactsI18n.de,
   ...fileContentSearchI18n.de,
+  ...fileEditorAidsI18n.de,
   ...htmlRenderI18n.de,
   ...sessionNoticesI18n.de,
   ...usageStatsI18n.de,
   ...webSearchI18n.de,
   ...sessionWarmingI18n.de,
+  ...overviewI18n.de,
   ...isolatedSpacesI18n.de,
   ...sourceBoardI18n.de,
+  ...stacksI18n.de,
   ...projectActionsI18n.de,
   ...gitIdentityEditorI18n.de,
   ...environmentI18n.de,
@@ -622,6 +628,7 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Als erledigt markieren',
   'sessions.sidebar.session.work.doneSuggested': 'Sieht erledigt aus',
   'sessions.sidebar.session.work.updateFailed': 'Sitzung konnte nicht aktualisiert werden',
+  'sessions.sidebar.session.work.folderDeleted': 'Der Ordner dieser Sitzung wurde gelöscht',
   'sessions.sidebar.session.pin.pinFailed': 'Sitzung konnte nicht angeheftet werden',
   'sessions.sidebar.session.pin.unpinFailed': 'Sitzung konnte nicht losgelöst werden',
   'chat.work.doneHint.text': 'Diese Arbeit scheint erledigt.',
@@ -1093,6 +1100,7 @@ export const dict = {
   'gitView.sync.syncCounts': '{behind}↓ {ahead}↑',
   'gitView.branch.actionsUnavailable': 'Zweigaktionen nicht verfügbar in diesem Repository-Zustand',
   'gitView.conflict.noDetailsAvailable': 'Keine Konfliktdetails verfügbar',
+  'magicPrompts.toast.loadFailed': 'Magic Prompts konnten nicht geladen werden. Es wurde nichts gesendet.',
   'gitView.empty.notGitRepository': 'Dieses Verzeichnis ist kein Git-Repository',
   'gitView.empty.notGitRepositoryDescription': 'Initialisieren Sie Git in diesem Verzeichnis oder öffnen Sie ein Repository.',
   'gitView.empty.selectSessionOrDirectory': 'Wählen Sie eine Sitzung oder ein Verzeichnis aus, um den Git-Status anzuzeigen',
@@ -3830,39 +3838,6 @@ export const dict = {
   'contextPanel.browser.devServers.hide': 'Port {port} in dieser Liste ausblenden',
   'contextPanel.browser.devServers.showHiddenSingle': '{count} ausgeblendeten Port anzeigen',
   'contextPanel.browser.devServers.showHiddenPlural': '{count} ausgeblendete Ports anzeigen',
-  'contextPanel.browser.devServers.name': 'Port {port} benennen',
-  'contextPanel.browser.devServers.nameDialog.title': 'Diesen Dev-Server benennen',
-  'contextPanel.browser.devServers.nameDialog.placeholder': 'z. B. HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': 'Wird für Port {port} auf diesem Rechner gespeichert.',
-  'contextPanel.browser.devServers.nameDialog.reset': 'Zurücksetzen',
-  'contextPanel.browser.devServers.nameDialog.save': 'Speichern',
-  'contextPanel.browser.devServers.configure': 'Dev-Server konfigurieren',
-  'contextPanel.browser.devServers.settings.title': 'Dev-Server',
-  'contextPanel.browser.devServers.settings.filtersTab': 'Filter',
-  'contextPanel.browser.devServers.settings.hiddenTab': 'Ausgeblendet',
-  'contextPanel.browser.devServers.settings.namesTab': 'Namen',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Eine Regel pro Zeile; ein führendes ! blendet Treffer aus. Terme: feld=wert, feld~teil, feld!=wert oder ein Feld allein für Vorhandensein. Felder: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} ungültige Regeln',
-  'contextPanel.browser.devServers.settings.matchCount': '{visible} von {total} angezeigt',
-  'contextPanel.browser.devServers.settings.hiddenCount': '{count} ausgeblendet',
-  'contextPanel.browser.devServers.settings.noHidden': 'Keine ausgeblendeten Ports',
-  'contextPanel.browser.devServers.settings.noNames': 'Keine benannten Ports',
-  'contextPanel.browser.devServers.settings.show': 'Anzeigen',
-  'contextPanel.browser.devServers.settings.showPort': 'Port {port} anzeigen',
-  'contextPanel.browser.devServers.settings.showAll': 'Alle anzeigen',
-  'contextPanel.browser.devServers.settings.clearName': 'Namen von Port {port} entfernen',
-  'contextPanel.browser.devServers.settings.rulesLabel': 'Regeln',
-  'contextPanel.browser.devServers.settings.inspectLabel': 'Inspizieren',
-  'contextPanel.browser.devServers.settings.appendRule': '{field} zu den Regeln hinzufügen',
-  'contextPanel.browser.devServers.settings.expandServer': 'Felder für Port {port} anzeigen',
-  'contextPanel.browser.devServers.settings.noServers': 'Keine Server zum Inspizieren',
-  'contextPanel.browser.devServers.settings.resize': 'Dialoggröße ändern',
-  'contextPanel.browser.devServers.settings.manualHidden': 'Manuell ausgeblendet',
-  'contextPanel.browser.devServers.settings.hiddenByRules': 'Durch Regeln ausgeblendet',
-  'contextPanel.browser.devServers.settings.byRule': 'ausgeblendet durch Regel: {rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': 'trifft keine Keep-Regel',
-  'contextPanel.browser.devServers.settings.namePlaceholder': 'Name für diesen Port',
-  'contextPanel.browser.devServers.settings.namePort': 'Port {port} benennen',
   'sidebarFilesTree.menu.openInDefaultApp': 'In Standard-App öffnen',
   'sessions.sidebar.header.displayMode.showChats': 'Chat-Bereich anzeigen',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Sitzungsstandards verwenden',
@@ -3886,4 +3861,8 @@ export const dict = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': 'Diese Aufgabe läuft bereits',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': 'Diese Aufgabe wartet bereits in der Warteschlange und läuft, sobald ein Platz frei wird',
   'chat.modelControls.agentFavoriteAdd': 'Zu Favoriten hinzufügen. Mit Favoriten wechselt Tab nur zwischen diesen',
+  'notifications.error.bodyFallback': 'Ein Fehler ist aufgetreten',
+  'notifications.question.bodyFallback': 'Der Agent wartet auf deine Antwort',
+  'notifications.permission.bodyFallback': 'Der Agent wartet auf deine Freigabe',
+  'notifications.permission.title': 'Berechtigung erforderlich',
 };

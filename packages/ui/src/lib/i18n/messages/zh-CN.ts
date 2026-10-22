@@ -10,13 +10,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -144,13 +147,16 @@ export const dict: Record<I18nKey, string> = {
   ...surfacePanelI18n['zh-CN'],
   ...fileArtifactsI18n['zh-CN'],
   ...fileContentSearchI18n['zh-CN'],
+  ...fileEditorAidsI18n['zh-CN'],
   ...htmlRenderI18n['zh-CN'],
   ...sessionNoticesI18n['zh-CN'],
   ...usageStatsI18n['zh-CN'],
   ...webSearchI18n['zh-CN'],
   ...sessionWarmingI18n['zh-CN'],
+  ...overviewI18n['zh-CN'],
   ...isolatedSpacesI18n['zh-CN'],
   ...sourceBoardI18n['zh-CN'],
+  ...stacksI18n['zh-CN'],
   ...projectActionsI18n['zh-CN'],
   ...gitIdentityEditorI18n['zh-CN'],
   ...environmentI18n['zh-CN'],
@@ -706,6 +712,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '标记为完成',
   'sessions.sidebar.session.work.doneSuggested': '看起来已完成',
   'sessions.sidebar.session.work.updateFailed': '无法更新会话',
+  'sessions.sidebar.session.work.folderDeleted': '此会话的文件夹已被删除',
   'sessions.sidebar.session.pin.pinFailed': '无法置顶会话',
   'sessions.sidebar.session.pin.unpinFailed': '无法取消置顶会话',
   'chat.work.doneHint.text': '这项工作看起来已完成。',
@@ -1201,6 +1208,7 @@ export const dict: Record<I18nKey, string> = {
   'gitView.sync.syncCounts': '{behind}↓ {ahead}↑',
   'gitView.branch.actionsUnavailable': '当前仓库状态下分支操作不可用',
   'gitView.conflict.noDetailsAvailable': '没有可用的冲突详情',
+  'magicPrompts.toast.loadFailed': '无法加载魔法提示词。未发送任何内容。',
   'gitView.empty.notGitRepository': '当前目录不是 Git 仓库',
   'gitView.empty.notGitRepositoryDescription': '请在此目录初始化 Git，或打开一个 Git 仓库。',
   'gitView.empty.selectSessionOrDirectory': '请选择会话或目录以查看 Git 状态',
@@ -3833,39 +3841,6 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.hide': '从此列表中隐藏端口 {port}',
   'contextPanel.browser.devServers.showHiddenSingle': '显示 {count} 个已隐藏端口',
   'contextPanel.browser.devServers.showHiddenPlural': '显示 {count} 个已隐藏端口',
-  'contextPanel.browser.devServers.name': '为端口 {port} 命名',
-  'contextPanel.browser.devServers.nameDialog.title': '为此开发服务器命名',
-  'contextPanel.browser.devServers.nameDialog.placeholder': '例如 HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': '保存到本机端口 {port}。',
-  'contextPanel.browser.devServers.nameDialog.reset': '重置',
-  'contextPanel.browser.devServers.nameDialog.save': '保存',
-  'contextPanel.browser.devServers.configure': '配置开发服务器',
-  'contextPanel.browser.devServers.settings.title': '开发服务器',
-  'contextPanel.browser.devServers.settings.filtersTab': '过滤器',
-  'contextPanel.browser.devServers.settings.hiddenTab': '已隐藏',
-  'contextPanel.browser.devServers.settings.namesTab': '名称',
-  'contextPanel.browser.devServers.settings.filtersHint': '每行一条规则；开头的 ! 隐藏匹配项。项：field=value、field~part、field!=value 或单独字段表示存在。字段：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd。',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} 条无效规则',
-  'contextPanel.browser.devServers.settings.matchCount': '显示 {visible}/{total}',
-  'contextPanel.browser.devServers.settings.hiddenCount': '已隐藏 {count} 个',
-  'contextPanel.browser.devServers.settings.noHidden': '没有隐藏的端口',
-  'contextPanel.browser.devServers.settings.noNames': '没有命名的端口',
-  'contextPanel.browser.devServers.settings.show': '显示',
-  'contextPanel.browser.devServers.settings.showPort': '显示端口 {port}',
-  'contextPanel.browser.devServers.settings.showAll': '全部显示',
-  'contextPanel.browser.devServers.settings.clearName': '移除端口 {port} 的名称',
-  'contextPanel.browser.devServers.settings.rulesLabel': '规则',
-  'contextPanel.browser.devServers.settings.inspectLabel': '检查',
-  'contextPanel.browser.devServers.settings.appendRule': '将 {field} 添加到规则',
-  'contextPanel.browser.devServers.settings.expandServer': '显示端口 {port} 的字段',
-  'contextPanel.browser.devServers.settings.noServers': '没有可检查的服务器',
-  'contextPanel.browser.devServers.settings.resize': '调整对话框大小',
-  'contextPanel.browser.devServers.settings.manualHidden': '手动隐藏',
-  'contextPanel.browser.devServers.settings.hiddenByRules': '被规则隐藏',
-  'contextPanel.browser.devServers.settings.byRule': '被规则隐藏：{rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': '不匹配任何 keep 规则',
-  'contextPanel.browser.devServers.settings.namePlaceholder': '此端口的名称',
-  'contextPanel.browser.devServers.settings.namePort': '为端口 {port} 命名',
   'sidebarFilesTree.menu.openInDefaultApp': '用默认应用打开',
   'sessions.sidebar.header.displayMode.showChats': '显示聊天分区',
   'sessions.scheduledTasks.editor.useDefaults.label': '使用会话默认设置',
@@ -3889,4 +3864,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': '此任务已有一次运行在进行中',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': '此任务已在队列中等待，有空位时就会运行',
   'chat.modelControls.agentFavoriteAdd': '加入收藏。有收藏时，Tab 只在收藏之间切换',
+  'notifications.error.bodyFallback': '发生错误',
+  'notifications.question.bodyFallback': '智能体正在等待你的回复',
+  'notifications.permission.bodyFallback': '智能体正在等待你的批准',
+  'notifications.permission.title': '需要权限',
 };

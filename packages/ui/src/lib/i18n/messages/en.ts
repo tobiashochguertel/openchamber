@@ -9,13 +9,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -143,13 +146,16 @@ export const dict = {
   ...surfacePanelI18n.en,
   ...fileArtifactsI18n.en,
   ...fileContentSearchI18n.en,
+  ...fileEditorAidsI18n.en,
   ...htmlRenderI18n.en,
   ...sessionNoticesI18n.en,
   ...usageStatsI18n.en,
   ...webSearchI18n.en,
   ...sessionWarmingI18n.en,
+  ...overviewI18n.en,
   ...isolatedSpacesI18n.en,
   ...sourceBoardI18n.en,
+  ...stacksI18n.en,
   ...projectActionsI18n.en,
   ...gitIdentityEditorI18n.en,
   ...environmentI18n.en,
@@ -705,6 +711,7 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Mark done',
   'sessions.sidebar.session.work.doneSuggested': 'Looks done',
   'sessions.sidebar.session.work.updateFailed': 'Couldn\'t update the session',
+  'sessions.sidebar.session.work.folderDeleted': 'This session\'s folder was deleted',
   'sessions.sidebar.session.pin.pinFailed': 'Couldn\'t pin the session',
   'sessions.sidebar.session.pin.unpinFailed': 'Couldn\'t unpin the session',
   'chat.work.doneHint.text': 'This work looks done.',
@@ -1200,6 +1207,7 @@ export const dict = {
   'gitView.sync.syncCounts': '{behind}↓ {ahead}↑',
   'gitView.branch.actionsUnavailable': 'Branch actions unavailable in this repository state',
   'gitView.conflict.noDetailsAvailable': 'No conflict details available',
+  'magicPrompts.toast.loadFailed': 'Could not load magic prompts. Nothing was sent.',
   'gitView.empty.notGitRepository': 'This directory is not a Git repository',
   'gitView.empty.notGitRepositoryDescription': 'Initialize Git in this directory or open a repository.',
   'gitView.empty.selectSessionOrDirectory': 'Select a session or directory to view Git status',
@@ -3832,39 +3840,6 @@ export const dict = {
   'contextPanel.browser.devServers.hide': 'Hide port {port} from this list',
   'contextPanel.browser.devServers.showHiddenSingle': 'Show {count} hidden port',
   'contextPanel.browser.devServers.showHiddenPlural': 'Show {count} hidden ports',
-  'contextPanel.browser.devServers.name': 'Name port {port}',
-  'contextPanel.browser.devServers.nameDialog.title': 'Name this dev server',
-  'contextPanel.browser.devServers.nameDialog.placeholder': 'e.g. HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': 'Saved for port {port} on this machine.',
-  'contextPanel.browser.devServers.nameDialog.reset': 'Reset',
-  'contextPanel.browser.devServers.nameDialog.save': 'Save',
-  'contextPanel.browser.devServers.configure': 'Configure dev servers',
-  'contextPanel.browser.devServers.settings.title': 'Dev servers',
-  'contextPanel.browser.devServers.settings.filtersTab': 'Filters',
-  'contextPanel.browser.devServers.settings.hiddenTab': 'Hidden',
-  'contextPanel.browser.devServers.settings.namesTab': 'Names',
-  'contextPanel.browser.devServers.settings.filtersHint': 'One rule per line; a leading ! hides matches. Terms: field=value, field~contains, field!=value, or a field alone for presence. Fields: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} invalid rules',
-  'contextPanel.browser.devServers.settings.matchCount': '{visible} of {total} shown',
-  'contextPanel.browser.devServers.settings.hiddenCount': '{count} hidden',
-  'contextPanel.browser.devServers.settings.noHidden': 'No hidden ports',
-  'contextPanel.browser.devServers.settings.noNames': 'No named ports',
-  'contextPanel.browser.devServers.settings.show': 'Show',
-  'contextPanel.browser.devServers.settings.showPort': 'Show port {port}',
-  'contextPanel.browser.devServers.settings.showAll': 'Show all',
-  'contextPanel.browser.devServers.settings.clearName': 'Remove name from port {port}',
-  'contextPanel.browser.devServers.settings.rulesLabel': 'Rules',
-  'contextPanel.browser.devServers.settings.inspectLabel': 'Inspect',
-  'contextPanel.browser.devServers.settings.appendRule': 'Add {field} to the rules',
-  'contextPanel.browser.devServers.settings.expandServer': 'Show fields for port {port}',
-  'contextPanel.browser.devServers.settings.noServers': 'No servers to inspect',
-  'contextPanel.browser.devServers.settings.resize': 'Resize dialog',
-  'contextPanel.browser.devServers.settings.manualHidden': 'Hidden manually',
-  'contextPanel.browser.devServers.settings.hiddenByRules': 'Hidden by rules',
-  'contextPanel.browser.devServers.settings.byRule': 'hidden by rule: {rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': 'matches no keep rule',
-  'contextPanel.browser.devServers.settings.namePlaceholder': 'Name for this port',
-  'contextPanel.browser.devServers.settings.namePort': 'Name port {port}',
   'sidebarFilesTree.menu.openInDefaultApp': 'Open in default app',
   'sessions.sidebar.header.displayMode.showChats': 'Show chats section',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Use session defaults',
@@ -3888,6 +3863,10 @@ export const dict = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': 'This task already has a run in progress',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': 'This task is already waiting in the queue and will run when a slot frees up',
   'chat.modelControls.agentFavoriteAdd': 'Add to favorites. With favorites, Tab cycles through them only',
+  'notifications.error.bodyFallback': 'An error occurred',
+  'notifications.question.bodyFallback': 'Agent is waiting for your response',
+  'notifications.permission.bodyFallback': 'Agent is waiting for your approval',
+  'notifications.permission.title': 'Permission required',
 } as const;
 
 export type I18nKey = keyof typeof dict;

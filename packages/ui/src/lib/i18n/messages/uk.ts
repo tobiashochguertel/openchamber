@@ -10,13 +10,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -154,13 +157,16 @@ export const dict: Record<I18nKey, string> = {
   ...surfacePanelI18n.uk,
   ...fileArtifactsI18n.uk,
   ...fileContentSearchI18n.uk,
+  ...fileEditorAidsI18n.uk,
   ...htmlRenderI18n.uk,
   ...sessionNoticesI18n.uk,
   ...usageStatsI18n.uk,
   ...webSearchI18n.uk,
   ...sessionWarmingI18n.uk,
+  ...overviewI18n.uk,
   ...isolatedSpacesI18n.uk,
   ...sourceBoardI18n.uk,
+  ...stacksI18n.uk,
   ...projectActionsI18n.uk,
   ...gitIdentityEditorI18n.uk,
   ...environmentI18n.uk,
@@ -707,6 +713,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.work.markDone": "Позначити готовим",
   "sessions.sidebar.session.work.doneSuggested": "Схоже, готово",
   "sessions.sidebar.session.work.updateFailed": "Не вдалося оновити сесію",
+  "sessions.sidebar.session.work.folderDeleted": "Папку цієї сесії видалено",
   "sessions.sidebar.session.pin.pinFailed": "Не вдалося закріпити сесію",
   "sessions.sidebar.session.pin.unpinFailed": "Не вдалося відкріпити сесію",
   "chat.work.doneHint.text": "Схоже, тут усе готово.",
@@ -1192,6 +1199,7 @@ export const dict: Record<I18nKey, string> = {
   "gitView.sync.syncCounts": "{behind}↓ {ahead}↑",
   "gitView.branch.actionsUnavailable": "Дії з гілками недоступні в цьому стані сховища",
   "gitView.conflict.noDetailsAvailable": "Деталі конфлікту відсутні",
+  "magicPrompts.toast.loadFailed": "Не вдалося завантажити магічні промпти. Нічого не надіслано.",
   "gitView.empty.notGitRepository": "Цей каталог не є репозиторієм Git",
   "gitView.empty.notGitRepositoryDescription": "Ініціалізуйте Git у цьому каталозі або відкрийте сховище.",
   "gitView.empty.selectSessionOrDirectory": "Виберіть сесію або каталог, щоб переглянути статус Git",
@@ -3833,39 +3841,6 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.hide': 'Сховати порт {port} з цього списку',
   'contextPanel.browser.devServers.showHiddenSingle': 'Показати приховані порти: {count}',
   'contextPanel.browser.devServers.showHiddenPlural': 'Показати приховані порти: {count}',
-  'contextPanel.browser.devServers.name': 'Назвати порт {port}',
-  'contextPanel.browser.devServers.nameDialog.title': 'Назвати цей dev-сервер',
-  'contextPanel.browser.devServers.nameDialog.placeholder': 'напр., HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': 'Зберігається для порту {port} на цій машині.',
-  'contextPanel.browser.devServers.nameDialog.reset': 'Скинути',
-  'contextPanel.browser.devServers.nameDialog.save': 'Зберегти',
-  'contextPanel.browser.devServers.configure': 'Налаштувати сервери розробки',
-  'contextPanel.browser.devServers.settings.title': 'Сервери розробки',
-  'contextPanel.browser.devServers.settings.filtersTab': 'Фільтри',
-  'contextPanel.browser.devServers.settings.hiddenTab': 'Приховані',
-  'contextPanel.browser.devServers.settings.namesTab': 'Назви',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Одне правило на рядок; початковий ! приховує збіги. Терми: поле=значення, поле~частина, поле!=значення або саме поле для наявності. Поля: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} недійсних правил',
-  'contextPanel.browser.devServers.settings.matchCount': 'Показано {visible} з {total}',
-  'contextPanel.browser.devServers.settings.hiddenCount': '{count} приховано',
-  'contextPanel.browser.devServers.settings.noHidden': 'Немає прихованих портів',
-  'contextPanel.browser.devServers.settings.noNames': 'Немає названих портів',
-  'contextPanel.browser.devServers.settings.show': 'Показати',
-  'contextPanel.browser.devServers.settings.showPort': 'Показати порт {port}',
-  'contextPanel.browser.devServers.settings.showAll': 'Показати все',
-  'contextPanel.browser.devServers.settings.clearName': 'Прибрати назву порту {port}',
-  'contextPanel.browser.devServers.settings.rulesLabel': 'Правила',
-  'contextPanel.browser.devServers.settings.inspectLabel': 'Огляд',
-  'contextPanel.browser.devServers.settings.appendRule': 'Додати {field} до правил',
-  'contextPanel.browser.devServers.settings.expandServer': 'Показати поля порту {port}',
-  'contextPanel.browser.devServers.settings.noServers': 'Немає серверів для огляду',
-  'contextPanel.browser.devServers.settings.resize': 'Змінити розмір діалогового вікна',
-  'contextPanel.browser.devServers.settings.manualHidden': 'Приховані вручну',
-  'contextPanel.browser.devServers.settings.hiddenByRules': 'Приховані правилами',
-  'contextPanel.browser.devServers.settings.byRule': 'приховано правилом: {rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': 'не відповідає жодному правилу збереження',
-  'contextPanel.browser.devServers.settings.namePlaceholder': 'Назва цього порту',
-  'contextPanel.browser.devServers.settings.namePort': 'Назвати порт {port}',
   'sidebarFilesTree.menu.openInDefaultApp': 'Відкрити в програмі за замовчуванням',
   'sessions.sidebar.header.displayMode.showChats': 'Показувати розділ чатів',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Використовувати типові налаштування сесії',
@@ -3889,4 +3864,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': 'Ця задача вже виконується',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': 'Ця задача вже чекає в черзі й запуститься, щойно звільниться місце',
   'chat.modelControls.agentFavoriteAdd': 'Додати в обрані. Коли є обрані, Tab перемикає лише між ними',
+  'notifications.error.bodyFallback': 'Сталася помилка',
+  'notifications.question.bodyFallback': 'Агент чекає на вашу відповідь',
+  'notifications.permission.bodyFallback': 'Агент чекає на ваше схвалення',
+  'notifications.permission.title': 'Потрібен дозвіл',
 };

@@ -9,13 +9,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -674,6 +677,7 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'تعليم كمنجزة',
   'sessions.sidebar.session.work.doneSuggested': 'تبدو منجزة',
   'sessions.sidebar.session.work.updateFailed': 'تعذّر تحديث الجلسة',
+  'sessions.sidebar.session.work.folderDeleted': 'تم حذف مجلد هذه الجلسة',
   'sessions.sidebar.session.pin.pinFailed': 'تعذّر تثبيت الجلسة',
   'sessions.sidebar.session.pin.unpinFailed': 'تعذّر إلغاء تثبيت الجلسة',
   'chat.work.doneHint.text': 'يبدو أن هذا العمل قد أُنجز.',
@@ -1168,6 +1172,7 @@ export const dict = {
   'gitView.sync.syncCounts': '{behind}↓ {ahead}↑',
   'gitView.branch.actionsUnavailable': 'إجراءات الفروع غير متاحة في حالة المستودع هذه',
   'gitView.conflict.noDetailsAvailable': 'لا تتوفر تفاصيل عن التعارض',
+  'magicPrompts.toast.loadFailed': 'تعذّر تحميل الموجّهات السحرية. لم يُرسَل شيء.',
   'gitView.empty.notGitRepository': 'هذا المجلد ليس مستودع Git',
   'gitView.empty.notGitRepositoryDescription': 'هيّئ Git في هذا المجلد أو افتح مستودعًا.',
   'gitView.empty.selectSessionOrDirectory': 'حدّد جلسة أو مجلدًا لعرض حالة Git',
@@ -3775,39 +3780,6 @@ export const dict = {
   'contextPanel.browser.devServers.hide': 'إخفاء المنفذ {port} من هذه القائمة',
   'contextPanel.browser.devServers.showHiddenSingle': 'إظهار {count} منفذ مخفي',
   'contextPanel.browser.devServers.showHiddenPlural': 'إظهار {count} منافذ مخفية',
-  'contextPanel.browser.devServers.name': 'تسمية المنفذ {port}',
-  'contextPanel.browser.devServers.nameDialog.title': 'تسمية خادم التطوير هذا',
-  'contextPanel.browser.devServers.nameDialog.placeholder': 'مثال: HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': 'يُحفظ للمنفذ {port} على هذا الجهاز.',
-  'contextPanel.browser.devServers.nameDialog.reset': 'إعادة تعيين',
-  'contextPanel.browser.devServers.nameDialog.save': 'حفظ',
-  'contextPanel.browser.devServers.configure': 'تكوين خوادم التطوير',
-  'contextPanel.browser.devServers.settings.title': 'خوادم التطوير',
-  'contextPanel.browser.devServers.settings.filtersTab': 'عوامل التصفية',
-  'contextPanel.browser.devServers.settings.hiddenTab': 'مخفي',
-  'contextPanel.browser.devServers.settings.namesTab': 'الأسماء',
-  'contextPanel.browser.devServers.settings.filtersHint': 'قاعدة واحدة في كل سطر؛ وعلامة ! في البداية تُخفي المطابقات. المصطلحات: field=value، field~part، field!=value أو حقل وحده للوجود. الحقول: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} قواعد غير صالحة',
-  'contextPanel.browser.devServers.settings.matchCount': '{visible} من {total} معروضة',
-  'contextPanel.browser.devServers.settings.hiddenCount': '{count} مخفي',
-  'contextPanel.browser.devServers.settings.noHidden': 'لا توجد منافذ مخفية',
-  'contextPanel.browser.devServers.settings.noNames': 'لا توجد منافذ مسماة',
-  'contextPanel.browser.devServers.settings.show': 'إظهار',
-  'contextPanel.browser.devServers.settings.showPort': 'إظهار المنفذ {port}',
-  'contextPanel.browser.devServers.settings.showAll': 'إظهار الكل',
-  'contextPanel.browser.devServers.settings.clearName': 'إزالة اسم المنفذ {port}',
-  'contextPanel.browser.devServers.settings.rulesLabel': 'القواعد',
-  'contextPanel.browser.devServers.settings.inspectLabel': 'فحص',
-  'contextPanel.browser.devServers.settings.appendRule': 'إضافة {field} إلى القواعد',
-  'contextPanel.browser.devServers.settings.expandServer': 'إظهار حقول المنفذ {port}',
-  'contextPanel.browser.devServers.settings.noServers': 'لا توجد خوادم لفحصها',
-  'contextPanel.browser.devServers.settings.resize': 'تغيير حجم مربع الحوار',
-  'contextPanel.browser.devServers.settings.manualHidden': 'مخفية يدوياً',
-  'contextPanel.browser.devServers.settings.hiddenByRules': 'مخفية بالقواعد',
-  'contextPanel.browser.devServers.settings.byRule': 'مخفي بالقاعدة: {rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': 'لا يطابق أي قاعدة إظهار',
-  'contextPanel.browser.devServers.settings.namePlaceholder': 'اسم لهذا المنفذ',
-  'contextPanel.browser.devServers.settings.namePort': 'تسمية المنفذ {port}',
   'sidebarFilesTree.menu.openInDefaultApp': 'فتح في التطبيق الافتراضي',
   'sessions.sidebar.header.displayMode.showChats': 'إظهار قسم المحادثات',
   'sessions.scheduledTasks.editor.useDefaults.label': 'استخدام الإعدادات الافتراضية للجلسة',
@@ -3842,13 +3814,16 @@ export const dict = {
   ...surfacePanelI18n.ar,
   ...fileArtifactsI18n.ar,
   ...fileContentSearchI18n.ar,
+  ...fileEditorAidsI18n.ar,
   ...htmlRenderI18n.ar,
   ...sessionNoticesI18n.ar,
   ...usageStatsI18n.ar,
   ...webSearchI18n.ar,
   ...sessionWarmingI18n.ar,
+  ...overviewI18n.ar,
   ...isolatedSpacesI18n.ar,
   ...sourceBoardI18n.ar,
+  ...stacksI18n.ar,
   ...projectActionsI18n.ar,
   ...gitIdentityEditorI18n.ar,
   ...environmentI18n.ar,
@@ -3913,4 +3888,8 @@ export const dict = {
   'diffView.whitespace.shown': 'تغييرات المسافات ظاهرة',
   'session.newWorktree.trust.skip': 'تخطٍّ',
   'chat.revertPopover.toast.restoreFailed': 'تعذّرت استعادة الرسائل المتراجع عنها',
+  'notifications.error.bodyFallback': 'حدث خطأ',
+  'notifications.question.bodyFallback': 'الوكيل بانتظار ردك',
+  'notifications.permission.bodyFallback': 'الوكيل بانتظار موافقتك',
+  'notifications.permission.title': 'مطلوب إذن',
 } as const;

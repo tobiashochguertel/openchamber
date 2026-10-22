@@ -10,13 +10,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -144,13 +147,16 @@ export const dict: Record<I18nKey, string> = {
   ...surfacePanelI18n.pl,
   ...fileArtifactsI18n.pl,
   ...fileContentSearchI18n.pl,
+  ...fileEditorAidsI18n.pl,
   ...htmlRenderI18n.pl,
   ...sessionNoticesI18n.pl,
   ...usageStatsI18n.pl,
   ...webSearchI18n.pl,
   ...sessionWarmingI18n.pl,
+  ...overviewI18n.pl,
   ...isolatedSpacesI18n.pl,
   ...sourceBoardI18n.pl,
+  ...stacksI18n.pl,
   ...projectActionsI18n.pl,
   ...gitIdentityEditorI18n.pl,
   ...environmentI18n.pl,
@@ -529,6 +535,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': 'Oznacz jako gotowe',
   'sessions.sidebar.session.work.doneSuggested': 'Wygląda na gotowe',
   'sessions.sidebar.session.work.updateFailed': 'Nie udało się zaktualizować sesji',
+  'sessions.sidebar.session.work.folderDeleted': 'Folder tej sesji został usunięty',
   'sessions.sidebar.session.pin.pinFailed': 'Nie udało się przypiąć sesji',
   'sessions.sidebar.session.pin.unpinFailed': 'Nie udało się odpiąć sesji',
   'chat.work.doneHint.text': 'Ta praca wygląda na skończoną.',
@@ -2480,6 +2487,7 @@ export const dict: Record<I18nKey, string> = {
   'gitView.conflict.noActiveSession': 'Brak aktywnej sesji',
   'gitView.conflict.noActiveSessionDescription': 'Otwórz lub utwórz sesję, aby rozwiązać konflikty.',
   'gitView.conflict.noDetailsAvailable': 'Brak szczegółów konfliktu',
+  'magicPrompts.toast.loadFailed': 'Nie udało się wczytać Magicznych Promptów. Nic nie zostało wysłane.',
   'gitView.conflict.resolveCurrentSession': 'Rozwiąż w bieżącej sesji',
   'gitView.conflict.resolveNewSession': 'Rozwiąż w nowej sesji',
   'gitView.empty.cleanDescription': 'All changes have been committed',
@@ -3837,39 +3845,6 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.hide': 'Ukryj port {port} na tej liście',
   'contextPanel.browser.devServers.showHiddenSingle': 'Pokaż ukryte porty: {count}',
   'contextPanel.browser.devServers.showHiddenPlural': 'Pokaż ukryte porty: {count}',
-  'contextPanel.browser.devServers.name': 'Nazwij port {port}',
-  'contextPanel.browser.devServers.nameDialog.title': 'Nazwij ten serwer deweloperski',
-  'contextPanel.browser.devServers.nameDialog.placeholder': 'np. HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': 'Zapisane dla portu {port} na tym komputerze.',
-  'contextPanel.browser.devServers.nameDialog.reset': 'Resetuj',
-  'contextPanel.browser.devServers.nameDialog.save': 'Zapisz',
-  'contextPanel.browser.devServers.configure': 'Konfiguruj serwery deweloperskie',
-  'contextPanel.browser.devServers.settings.title': 'Serwery deweloperskie',
-  'contextPanel.browser.devServers.settings.filtersTab': 'Filtry',
-  'contextPanel.browser.devServers.settings.hiddenTab': 'Ukryte',
-  'contextPanel.browser.devServers.settings.namesTab': 'Nazwy',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Jedna reguła na wiersz; początkowe ! ukrywa dopasowania. Termy: pole=wartość, pole~część, pole!=wartość lub samo pole dla obecności. Pola: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} nieprawidłowych reguł',
-  'contextPanel.browser.devServers.settings.matchCount': 'Wyświetlono {visible} z {total}',
-  'contextPanel.browser.devServers.settings.hiddenCount': '{count} ukrytych',
-  'contextPanel.browser.devServers.settings.noHidden': 'Brak ukrytych portów',
-  'contextPanel.browser.devServers.settings.noNames': 'Brak nazwanych portów',
-  'contextPanel.browser.devServers.settings.show': 'Pokaż',
-  'contextPanel.browser.devServers.settings.showPort': 'Pokaż port {port}',
-  'contextPanel.browser.devServers.settings.showAll': 'Pokaż wszystkie',
-  'contextPanel.browser.devServers.settings.clearName': 'Usuń nazwę portu {port}',
-  'contextPanel.browser.devServers.settings.rulesLabel': 'Reguły',
-  'contextPanel.browser.devServers.settings.inspectLabel': 'Inspekcja',
-  'contextPanel.browser.devServers.settings.appendRule': 'Dodaj {field} do reguł',
-  'contextPanel.browser.devServers.settings.expandServer': 'Pokaż pola portu {port}',
-  'contextPanel.browser.devServers.settings.noServers': 'Brak serwerów do inspekcji',
-  'contextPanel.browser.devServers.settings.resize': 'Zmień rozmiar okna',
-  'contextPanel.browser.devServers.settings.manualHidden': 'Ukryte ręcznie',
-  'contextPanel.browser.devServers.settings.hiddenByRules': 'Ukryte przez reguły',
-  'contextPanel.browser.devServers.settings.byRule': 'ukryty przez regułę: {rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': 'nie pasuje do żadnej reguły zachowania',
-  'contextPanel.browser.devServers.settings.namePlaceholder': 'Nazwa tego portu',
-  'contextPanel.browser.devServers.settings.namePort': 'Nazwij port {port}',
   'sidebarFilesTree.menu.openInDefaultApp': 'Otwórz w domyślnej aplikacji',
   'sessions.sidebar.header.displayMode.showChats': 'Pokaż sekcję czatów',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Używaj domyślnych ustawień sesji',
@@ -3893,4 +3868,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': 'To zadanie już trwa',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': 'To zadanie już czeka w kolejce i uruchomi się, gdy zwolni się miejsce',
   'chat.modelControls.agentFavoriteAdd': 'Dodaj do ulubionych. Gdy są ulubione, Tab przełącza tylko między nimi',
+  'notifications.error.bodyFallback': 'Wystąpił błąd',
+  'notifications.question.bodyFallback': 'Agent czeka na Twoją odpowiedź',
+  'notifications.permission.bodyFallback': 'Agent czeka na Twoją zgodę',
+  'notifications.permission.title': 'Wymagane uprawnienie',
 } as const;

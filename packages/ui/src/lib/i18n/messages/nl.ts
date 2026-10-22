@@ -9,13 +9,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -143,13 +146,16 @@ export const dict = {
   ...surfacePanelI18n.nl,
   ...fileArtifactsI18n.nl,
   ...fileContentSearchI18n.nl,
+  ...fileEditorAidsI18n.nl,
   ...htmlRenderI18n.nl,
   ...sessionNoticesI18n.nl,
   ...usageStatsI18n.nl,
   ...webSearchI18n.nl,
   ...sessionWarmingI18n.nl,
+  ...overviewI18n.nl,
   ...isolatedSpacesI18n.nl,
   ...sourceBoardI18n.nl,
+  ...stacksI18n.nl,
   ...projectActionsI18n.nl,
   ...gitIdentityEditorI18n.nl,
   ...environmentI18n.nl,
@@ -697,6 +703,7 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Markeer als afgerond',
   'sessions.sidebar.session.work.doneSuggested': 'Lijkt afgerond',
   'sessions.sidebar.session.work.updateFailed': 'Sessie kon niet worden bijgewerkt',
+  'sessions.sidebar.session.work.folderDeleted': 'De map van deze sessie is verwijderd',
   'sessions.sidebar.session.pin.pinFailed': 'Sessie kon niet worden vastgezet',
   'sessions.sidebar.session.pin.unpinFailed': 'Sessie kon niet worden losgemaakt',
   'chat.work.doneHint.text': 'Dit werk lijkt afgerond.',
@@ -1192,6 +1199,7 @@ export const dict = {
   'gitView.sync.syncCounts': '{behind}↓ {ahead}↑',
   'gitView.branch.actionsUnavailable': 'Branchacties niet beschikbaar in deze repositorystatus',
   'gitView.conflict.noDetailsAvailable': 'Geen conflictgegevens beschikbaar',
+  'magicPrompts.toast.loadFailed': 'Magic Prompts konden niet worden geladen. Er is niets verzonden.',
   'gitView.empty.notGitRepository': 'Deze map is geen Git-repository',
   'gitView.empty.notGitRepositoryDescription': 'Initialiseer Git in deze map of open een repository.',
   'gitView.empty.selectSessionOrDirectory': 'Selecteer een sessie of map om de Git-status te bekijken',
@@ -3832,39 +3840,6 @@ export const dict = {
   'contextPanel.browser.devServers.hide': 'Poort {port} in deze lijst verbergen',
   'contextPanel.browser.devServers.showHiddenSingle': '{count} verborgen poort tonen',
   'contextPanel.browser.devServers.showHiddenPlural': '{count} verborgen poorten tonen',
-  'contextPanel.browser.devServers.name': 'Poort {port} een naam geven',
-  'contextPanel.browser.devServers.nameDialog.title': 'Deze dev-server een naam geven',
-  'contextPanel.browser.devServers.nameDialog.placeholder': 'bijv. HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': 'Opgeslagen voor poort {port} op deze machine.',
-  'contextPanel.browser.devServers.nameDialog.reset': 'Herstellen',
-  'contextPanel.browser.devServers.nameDialog.save': 'Opslaan',
-  'contextPanel.browser.devServers.configure': 'Dev-servers configureren',
-  'contextPanel.browser.devServers.settings.title': 'Dev-servers',
-  'contextPanel.browser.devServers.settings.filtersTab': 'Filters',
-  'contextPanel.browser.devServers.settings.hiddenTab': 'Verborgen',
-  'contextPanel.browser.devServers.settings.namesTab': 'Namen',
-  'contextPanel.browser.devServers.settings.filtersHint': 'Eén regel per regel; een leidende ! verbergt treffers. Termen: veld=waarde, veld~deel, veld!=waarde of een veld alleen voor aanwezigheid. Velden: port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd.',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} ongeldige regels',
-  'contextPanel.browser.devServers.settings.matchCount': '{visible} van {total} getoond',
-  'contextPanel.browser.devServers.settings.hiddenCount': '{count} verborgen',
-  'contextPanel.browser.devServers.settings.noHidden': 'Geen verborgen poorten',
-  'contextPanel.browser.devServers.settings.noNames': 'Geen benoemde poorten',
-  'contextPanel.browser.devServers.settings.show': 'Tonen',
-  'contextPanel.browser.devServers.settings.showPort': 'Poort {port} tonen',
-  'contextPanel.browser.devServers.settings.showAll': 'Alles tonen',
-  'contextPanel.browser.devServers.settings.clearName': 'Naam van poort {port} verwijderen',
-  'contextPanel.browser.devServers.settings.rulesLabel': 'Regels',
-  'contextPanel.browser.devServers.settings.inspectLabel': 'Inspecteren',
-  'contextPanel.browser.devServers.settings.appendRule': '{field} aan de regels toevoegen',
-  'contextPanel.browser.devServers.settings.expandServer': 'Velden voor poort {port} tonen',
-  'contextPanel.browser.devServers.settings.noServers': 'Geen servers om te inspecteren',
-  'contextPanel.browser.devServers.settings.resize': 'Dialoogvenster aanpassen',
-  'contextPanel.browser.devServers.settings.manualHidden': 'Handmatig verborgen',
-  'contextPanel.browser.devServers.settings.hiddenByRules': 'Verborgen door regels',
-  'contextPanel.browser.devServers.settings.byRule': 'verborgen door regel: {rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': 'komt met geen keep-regel overeen',
-  'contextPanel.browser.devServers.settings.namePlaceholder': 'Naam voor deze poort',
-  'contextPanel.browser.devServers.settings.namePort': 'Poort {port} een naam geven',
   'sidebarFilesTree.menu.openInDefaultApp': 'Openen in standaardapp',
   'sessions.sidebar.header.displayMode.showChats': 'Chatsectie tonen',
   'sessions.scheduledTasks.editor.useDefaults.label': 'Standaardinstellingen voor sessies gebruiken',
@@ -3888,4 +3863,8 @@ export const dict = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': 'Deze taak heeft al een run bezig',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': 'Deze taak staat al in de wachtrij en draait zodra er plek vrijkomt',
   'chat.modelControls.agentFavoriteAdd': 'Toevoegen aan favorieten. Met favorieten wisselt Tab alleen daartussen',
+  'notifications.error.bodyFallback': 'Er is een fout opgetreden',
+  'notifications.question.bodyFallback': 'De agent wacht op je antwoord',
+  'notifications.permission.bodyFallback': 'De agent wacht op je goedkeuring',
+  'notifications.permission.title': 'Toestemming vereist',
 } as const;

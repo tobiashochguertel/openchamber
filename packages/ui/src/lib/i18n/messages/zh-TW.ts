@@ -10,13 +10,16 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -144,13 +147,16 @@ export const dict: Record<I18nKey, string> = {
   ...surfacePanelI18n['zh-TW'],
   ...fileArtifactsI18n['zh-TW'],
   ...fileContentSearchI18n['zh-TW'],
+  ...fileEditorAidsI18n['zh-TW'],
   ...htmlRenderI18n['zh-TW'],
   ...sessionNoticesI18n['zh-TW'],
   ...usageStatsI18n['zh-TW'],
   ...webSearchI18n['zh-TW'],
   ...sessionWarmingI18n['zh-TW'],
+  ...overviewI18n['zh-TW'],
   ...isolatedSpacesI18n['zh-TW'],
   ...sourceBoardI18n['zh-TW'],
+  ...stacksI18n['zh-TW'],
   ...projectActionsI18n['zh-TW'],
   ...gitIdentityEditorI18n['zh-TW'],
   ...environmentI18n['zh-TW'],
@@ -726,6 +732,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '標記為完成',
   'sessions.sidebar.session.work.doneSuggested': '看起來已完成',
   'sessions.sidebar.session.work.updateFailed': '無法更新工作階段',
+  'sessions.sidebar.session.work.folderDeleted': '此工作階段的資料夾已被刪除',
   'sessions.sidebar.session.pin.pinFailed': '無法釘選工作階段',
   'sessions.sidebar.session.pin.unpinFailed': '無法取消釘選工作階段',
   'chat.work.doneHint.text': '這項工作看起來已完成。',
@@ -1220,6 +1227,7 @@ export const dict: Record<I18nKey, string> = {
   'gitView.sync.syncCounts': '{behind}↓ {ahead}↑',
   'gitView.branch.actionsUnavailable': '目前儲存庫狀態下分支操作無法使用',
   'gitView.conflict.noDetailsAvailable': '沒有可用的衝突詳情',
+  'magicPrompts.toast.loadFailed': '無法載入魔法提示詞。未傳送任何內容。',
   'gitView.empty.notGitRepository': '目前目錄不是 Git 儲存庫',
   'gitView.empty.notGitRepositoryDescription': '請在此目錄初始化 Git，或開啟一個 Git 儲存庫。',
   'gitView.empty.selectSessionOrDirectory': '請選擇會话或目錄以查看 Git 狀態',
@@ -3832,39 +3840,6 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.browser.devServers.hide': '從此清單隱藏連接埠 {port}',
   'contextPanel.browser.devServers.showHiddenSingle': '顯示 {count} 個已隱藏連接埠',
   'contextPanel.browser.devServers.showHiddenPlural': '顯示 {count} 個已隱藏連接埠',
-  'contextPanel.browser.devServers.name': '為連接埠 {port} 命名',
-  'contextPanel.browser.devServers.nameDialog.title': '為此開發伺服器命名',
-  'contextPanel.browser.devServers.nameDialog.placeholder': '例如 HedgeDoc',
-  'contextPanel.browser.devServers.nameDialog.hint': '儲存於本機連接埠 {port}。',
-  'contextPanel.browser.devServers.nameDialog.reset': '重設',
-  'contextPanel.browser.devServers.nameDialog.save': '儲存',
-  'contextPanel.browser.devServers.configure': '設定開發伺服器',
-  'contextPanel.browser.devServers.settings.title': '開發伺服器',
-  'contextPanel.browser.devServers.settings.filtersTab': '篩選器',
-  'contextPanel.browser.devServers.settings.hiddenTab': '已隱藏',
-  'contextPanel.browser.devServers.settings.namesTab': '名稱',
-  'contextPanel.browser.devServers.settings.filtersHint': '每行一條規則；開頭的 ! 隱藏相符項目。項：field=value、field~part、field!=value 或單獨欄位表示存在。欄位：port, command, url, announced, docker, docker.name, docker.image, docker.id, docker.label.<key>, forward, forward.host, forward.port, source, project, commandLine, cwd。',
-  'contextPanel.browser.devServers.settings.invalidCount': '{count} 條無效規則',
-  'contextPanel.browser.devServers.settings.matchCount': '顯示 {visible}/{total}',
-  'contextPanel.browser.devServers.settings.hiddenCount': '已隱藏 {count} 個',
-  'contextPanel.browser.devServers.settings.noHidden': '沒有隱藏的連接埠',
-  'contextPanel.browser.devServers.settings.noNames': '沒有命名的連接埠',
-  'contextPanel.browser.devServers.settings.show': '顯示',
-  'contextPanel.browser.devServers.settings.showPort': '顯示連接埠 {port}',
-  'contextPanel.browser.devServers.settings.showAll': '全部顯示',
-  'contextPanel.browser.devServers.settings.clearName': '移除連接埠 {port} 的名稱',
-  'contextPanel.browser.devServers.settings.rulesLabel': '規則',
-  'contextPanel.browser.devServers.settings.inspectLabel': '檢視',
-  'contextPanel.browser.devServers.settings.appendRule': '將 {field} 加入規則',
-  'contextPanel.browser.devServers.settings.expandServer': '顯示連接埠 {port} 的欄位',
-  'contextPanel.browser.devServers.settings.noServers': '沒有可檢視的伺服器',
-  'contextPanel.browser.devServers.settings.resize': '調整對話方塊大小',
-  'contextPanel.browser.devServers.settings.manualHidden': '手動隱藏',
-  'contextPanel.browser.devServers.settings.hiddenByRules': '被規則隱藏',
-  'contextPanel.browser.devServers.settings.byRule': '被規則隱藏：{rule}',
-  'contextPanel.browser.devServers.settings.noKeepMatch': '不符合任何 keep 規則',
-  'contextPanel.browser.devServers.settings.namePlaceholder': '此連接埠的名稱',
-  'contextPanel.browser.devServers.settings.namePort': '為連接埠 {port} 命名',
   'sidebarFilesTree.menu.openInDefaultApp': '以預設應用程式開啟',
   'sessions.sidebar.header.displayMode.showChats': '顯示聊天區段',
   'sessions.scheduledTasks.editor.useDefaults.label': '使用工作階段預設值',
@@ -3888,4 +3863,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.dialog.toast.alreadyRunning': '此任務已有一次執行正在進行',
   'sessions.scheduledTasks.dialog.toast.alreadyQueued': '此任務已在佇列中等待，有空位時就會執行',
   'chat.modelControls.agentFavoriteAdd': '加入最愛。有最愛時，Tab 只在最愛之間切換',
+  'notifications.error.bodyFallback': '發生錯誤',
+  'notifications.question.bodyFallback': '智慧體正在等待你的回覆',
+  'notifications.permission.bodyFallback': '智慧體正在等待你的核准',
+  'notifications.permission.title': '需要權限',
 };
