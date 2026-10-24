@@ -12,19 +12,18 @@ index d8b1f0603..25c07b7b1 100644
  
  - you press **Open preview** on a local address in the terminal
 diff --git c/packages/ui/src/components/browser/BrowserEmptyState.tsx w/packages/ui/src/components/browser/BrowserEmptyState.tsx
-index 35aa8cd12..de44fa981 100644
+index 542dcc242..d38208f7e 100644
 --- c/packages/ui/src/components/browser/BrowserEmptyState.tsx
 +++ w/packages/ui/src/components/browser/BrowserEmptyState.tsx
-@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
- import { Icon } from '@/components/icon/Icon';
+@@ -6,6 +6,7 @@ import { Icon } from '@/components/icon/Icon';
  import { OpenChamberLogo } from '@/components/ui/OpenChamberLogo';
  import { useI18n } from '@/lib/i18n';
--import { fetchDevServers, mergeDevServerCandidates, type DevServerDiscovery } from '@/lib/browser/devServers';
-+import { devServerContextLabel, fetchDevServers, mergeDevServerCandidates, type DevServerDiscovery } from '@/lib/browser/devServers';
- import { clearAnnouncedDevServers, useAnnouncedDevServers } from '@/lib/browser/announcedServers';
- import { browserUrlLabel } from '@/lib/browser/url';
- import { isRemoteWebLoopbackUrl, isSpaceUnreachableFromHere } from '@/lib/browser/devTunnel';
-@@ -13,6 +13,10 @@ import { isSpaceDirectory } from '@/lib/spaces/space-route';
+ import {
++  devServerContextLabel,
+   fetchDevServers,
+   mergeDevServerCandidates,
+   placeDevServerCandidates,
+@@ -21,6 +22,10 @@ import { isSpaceDirectory } from '@/lib/spaces/space-route';
  import { useSpaceMarkLabel } from '@/lib/spaces/space-mark';
  import { useSpaceDirectoryStopped } from '@/lib/spaces/spaces-store';
  import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts } from '@/lib/browser/hiddenDevServers';
@@ -35,7 +34,7 @@ index 35aa8cd12..de44fa981 100644
  
  /**
   * What the panel shows before anything is loaded.
-@@ -23,16 +27,6 @@ import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts }
+@@ -31,16 +36,6 @@ import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts }
   * mean very different things to someone whose dev server is definitely up.
   */
  
@@ -52,23 +51,27 @@ index 35aa8cd12..de44fa981 100644
  /**
   * Re-checked while the panel shows this tab: a project's servers appear seconds
   * apart. A closed panel or a background tab asks nothing, since every look makes
-@@ -100,11 +94,21 @@ export const BrowserEmptyState: React.FC<{
-   // A server that just announced itself is shown even on a hidden port: the
-   // user started it, so it is no longer noise.
+@@ -122,14 +117,23 @@ export const BrowserEmptyState: React.FC<{
+   // user started it, so it is no longer noise. Servers started outside every
+   // project wait behind the same "show hidden" link as ports the user hid.
    const hiddenPorts = useHiddenDevServerPorts();
 +  const labels = useDevServerLabels();
 +  const filterRules = useDevServerFilterRules();
 +  const [nameTarget, setNameTarget] = React.useState<number | null>(null);
 +  const [settingsOpen, setSettingsOpen] = React.useState(false);
+   const [showOutsideWork, setShowOutsideWork] = React.useState(false);
    const visibleCandidates = React.useMemo(
--    () => candidates.filter((candidate) => candidate.announced || !hiddenPorts.includes(candidate.port)),
--    [candidates, hiddenPorts],
-+    () => candidates.filter(
-+      (candidate) =>
-+        (candidate.announced || !hiddenPorts.includes(candidate.port))
-+        && isDevServerVisibleByRules(candidate, filterRules),
+-    () => candidates.filter((candidate) => candidate.announced || (
+-      !hiddenPorts.includes(candidate.port) && (showOutsideWork || !candidate.outsideWork)
+-    )),
+-    [candidates, hiddenPorts, showOutsideWork],
++    () => candidates.filter((candidate) =>
++      (candidate.announced || (
++        !hiddenPorts.includes(candidate.port) && (showOutsideWork || !candidate.outsideWork)
++      ))
++      && isDevServerVisibleByRules(candidate, filterRules),
 +    ),
-+    [candidates, hiddenPorts, filterRules],
++    [candidates, hiddenPorts, showOutsideWork, filterRules],
    );
 -  const hiddenCount = candidates.length - visibleCandidates.length;
 +  const hiddenCount = candidates.filter(
@@ -77,7 +80,7 @@ index 35aa8cd12..de44fa981 100644
  
    return (
      // The whole panel must not scroll: a centred column that overflows clips its
-@@ -119,18 +123,33 @@ export const BrowserEmptyState: React.FC<{
+@@ -144,18 +148,33 @@ export const BrowserEmptyState: React.FC<{
  
        {candidates.length > 0 ? (
          <div className="flex min-h-0 w-full max-w-sm flex-col gap-1">
@@ -117,7 +120,7 @@ index 35aa8cd12..de44fa981 100644
                <div key={candidate.port} className="group/server flex shrink-0 items-center gap-1">
                  <Button
                    type="button"
-@@ -140,6 +159,7 @@ export const BrowserEmptyState: React.FC<{
+@@ -165,6 +184,7 @@ export const BrowserEmptyState: React.FC<{
                    // tooltips of the two marks that say why the row does not open.
                    className={cn('min-w-0 flex-1 justify-start gap-2', remoteOnly && 'cursor-default opacity-60')}
                    aria-disabled={remoteOnly || undefined}
@@ -125,24 +128,29 @@ index 35aa8cd12..de44fa981 100644
                    onClick={() => {
                      if (remoteOnly) return;
                      // The offer is answered; leaving it up would keep suggesting
-@@ -160,7 +180,7 @@ export const BrowserEmptyState: React.FC<{
+@@ -185,10 +205,7 @@ export const BrowserEmptyState: React.FC<{
                    ) : (
                      <Icon name="global" className="size-3.5 shrink-0" aria-hidden="true" />
                    )}
--                  <span className="truncate">{browserUrlLabel(candidate.url) || candidate.url}</span>
+-                  <span className="truncate">
+-                    {browserUrlLabel(candidate.url) || candidate.url}
+-                    <span className="typography-micro text-muted-foreground">{pathLabel(candidate.url)}</span>
+-                  </span>
 +                  <span className="truncate">{customLabel ?? (browserUrlLabel(candidate.url) || candidate.url)}</span>
                    {spaceUnreachable ? (
                      <span
                        className="ms-auto shrink-0 text-muted-foreground"
-@@ -172,10 +192,21 @@ export const BrowserEmptyState: React.FC<{
+@@ -206,7 +223,22 @@ export const BrowserEmptyState: React.FC<{
+                       <Icon name="folder" className="size-3 shrink-0" aria-hidden="true" />
+                       <span className="truncate" dir="auto">{candidate.folderName}</span>
                      </span>
-                   ) : (
-                     <span className="ms-auto truncate typography-micro text-muted-foreground">
--                      {pathLabel(candidate.url)}
+-                  ) : null}
++                  ) : (
++                    <span className="ms-auto truncate typography-micro text-muted-foreground">
 +                      {devServerContextLabel(candidate)}
-                     </span>
-                   )}
-                 </Button>
++                    </span>
++                  )}
++                </Button>
 +                <Button
 +                  type="button"
 +                  variant="ghost"
@@ -153,11 +161,10 @@ index 35aa8cd12..de44fa981 100644
 +                  title={t('contextPanel.browser.devServers.name', { port: candidate.port })}
 +                >
 +                  <Icon name="pencil" className="size-3.5" aria-hidden="true" />
-+                </Button>
+                 </Button>
                  {candidate.announced ? null : (
                    <Button
-                     type="button"
-@@ -190,7 +221,8 @@ export const BrowserEmptyState: React.FC<{
+@@ -222,7 +254,8 @@ export const BrowserEmptyState: React.FC<{
                    </Button>
                  )}
                </div>
@@ -167,7 +174,7 @@ index 35aa8cd12..de44fa981 100644
            </div>
            {hiddenCount > 0 ? (
              <Button
-@@ -213,6 +245,18 @@ export const BrowserEmptyState: React.FC<{
+@@ -248,6 +281,18 @@ export const BrowserEmptyState: React.FC<{
            {t('contextPanel.browser.devServers.unavailable')}
          </span>
        ) : null}
@@ -187,7 +194,7 @@ index 35aa8cd12..de44fa981 100644
    );
  };
 diff --git c/packages/ui/src/lib/browser/devServers.test.ts w/packages/ui/src/lib/browser/devServers.test.ts
-index 711eeb0ba..2d251225a 100644
+index 4cd924c8d..14276f149 100644
 --- c/packages/ui/src/lib/browser/devServers.test.ts
 +++ w/packages/ui/src/lib/browser/devServers.test.ts
 @@ -58,6 +58,39 @@ describe('dev server candidates', () => {
@@ -231,11 +238,11 @@ index 711eeb0ba..2d251225a 100644
      expect(mergeDevServerCandidates({ announced: [], discovered: null })).toEqual([]);
      expect(mergeDevServerCandidates({ announced: [], discovered: [] })).toEqual([]);
 diff --git c/packages/ui/src/lib/browser/devServers.ts w/packages/ui/src/lib/browser/devServers.ts
-index 949c8b4f2..8304823b1 100644
+index 4c1e620d0..759a360d4 100644
 --- c/packages/ui/src/lib/browser/devServers.ts
 +++ w/packages/ui/src/lib/browser/devServers.ts
-@@ -7,10 +7,34 @@
-  */
+@@ -10,15 +10,38 @@ import { z } from 'zod';
+ import { normalizePath } from '@/lib/pathNormalization';
  import { runtimeFetch } from '@/lib/runtime-fetch';
  
 +export type DevServerDockerInfo = {
@@ -250,26 +257,31 @@ index 949c8b4f2..8304823b1 100644
 +  readonly port: number;
 +};
 +
- export type DiscoveredDevServer = {
-   readonly port: number;
-   readonly url: string;
-   readonly command: string;
-+  /** Container that published this port, when the owner is a Docker forward. */
-+  readonly docker?: DevServerDockerInfo;
-+  /** -L target this port forwards to, when the owner is an ssh process. */
-+  readonly forward?: DevServerForwardInfo;
-+  /** Where this listener comes from: container, ssh forward, OS, or user process. */
-+  readonly source?: 'docker' | 'forward' | 'system' | 'process';
-+  /** Compose project or working-directory name, when it could be resolved. */
-+  readonly project?: string;
-+  /** Full argv of the owning process. */
-+  readonly commandLine?: string;
-+  /** Working directory of the owning process. */
-+  readonly cwd?: string;
- };
+ const discoveredServerSchema = z.object({
+   port: z.number().int().positive(),
+   url: z.string().min(1),
+   command: z.string(),
+   /** The folder the process runs in; absent where the server could not tell. */
+   directory: z.string().min(1).optional(),
++  docker: z.object({
++    id: z.string(),
++    name: z.string(),
++    image: z.string(),
++    labels: z.record(z.string(), z.string()),
++  }).optional(),
++  forward: z.object({ host: z.string(), port: z.number() }).optional(),
++  source: z.enum(['docker', 'forward', 'system', 'process']).optional(),
++  project: z.string().optional(),
++  commandLine: z.string().optional(),
++  cwd: z.string().optional(),
+ });
+ 
+-type DiscoveredDevServer = z.infer<typeof discoveredServerSchema>;
++export type DiscoveredDevServer = z.infer<typeof discoveredServerSchema>;
  
  export type DevServerDiscovery =
-@@ -77,11 +101,40 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
+   | { readonly kind: 'loading' }
+@@ -78,13 +101,42 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
    }
  };
  
@@ -278,9 +290,11 @@ index 949c8b4f2..8304823b1 100644
    readonly url: string;
    readonly port: number;
 +  /** The owning process's command name, or '' when discovery did not supply one. */
-+  readonly command: string;
++  readonly command?: string;
    /** Present when a server announced this address itself. */
    readonly announced: boolean;
+   /** The folder the process runs in, when discovery could tell. */
+   readonly directory?: string;
 +  readonly docker?: DevServerDockerInfo;
 +  readonly forward?: DevServerForwardInfo;
 +  readonly source?: 'docker' | 'forward' | 'system' | 'process';
@@ -311,7 +325,7 @@ index 949c8b4f2..8304823b1 100644
  };
  
  const portOf = (url: string): number | null => {
-@@ -122,7 +175,7 @@ export const mergeDevServerCandidates = ({
+@@ -125,7 +177,7 @@ export const mergeDevServerCandidates = ({
  
    if (!discovered) {
      return [...announcedByPort.entries()]
@@ -320,12 +334,13 @@ index 949c8b4f2..8304823b1 100644
        .sort((left, right) => left.port - right.port);
    }
  
-@@ -132,7 +185,14 @@ export const mergeDevServerCandidates = ({
+@@ -135,8 +187,15 @@ export const mergeDevServerCandidates = ({
        return {
          url: announcedUrl ?? server.url,
          port: server.port,
 +        command: server.command,
          announced: announcedUrl !== undefined,
+         directory: server.directory,
 +        docker: server.docker,
 +        forward: server.forward,
 +        source: server.source,
@@ -405,10 +420,10 @@ index 661fb9bf0..32447bd6e 100644
    listeners.add(listener);
    return () => { listeners.delete(listener); };
 diff --git c/packages/ui/src/lib/i18n/messages/ar.ts w/packages/ui/src/lib/i18n/messages/ar.ts
-index 75d1c05ec..325d66b5b 100644
+index ceaa53503..1c79b5c6c 100644
 --- c/packages/ui/src/lib/i18n/messages/ar.ts
 +++ w/packages/ui/src/lib/i18n/messages/ar.ts
-@@ -3775,6 +3775,39 @@ export const dict = {
+@@ -3778,6 +3778,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'إخفاء المنفذ {port} من هذه القائمة',
    'contextPanel.browser.devServers.showHiddenSingle': 'إظهار {count} منفذ مخفي',
    'contextPanel.browser.devServers.showHiddenPlural': 'إظهار {count} منافذ مخفية',
@@ -449,10 +464,10 @@ index 75d1c05ec..325d66b5b 100644
    'sessions.sidebar.header.displayMode.showChats': 'إظهار قسم المحادثات',
    'sessions.scheduledTasks.editor.useDefaults.label': 'استخدام الإعدادات الافتراضية للجلسة',
 diff --git c/packages/ui/src/lib/i18n/messages/de.ts w/packages/ui/src/lib/i18n/messages/de.ts
-index 839295db5..db43a6118 100644
+index 9fa2354b8..4b75aea41 100644
 --- c/packages/ui/src/lib/i18n/messages/de.ts
 +++ w/packages/ui/src/lib/i18n/messages/de.ts
-@@ -3830,6 +3830,39 @@ export const dict = {
+@@ -3839,6 +3839,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Port {port} in dieser Liste ausblenden',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} ausgeblendeten Port anzeigen',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} ausgeblendete Ports anzeigen',
@@ -493,10 +508,10 @@ index 839295db5..db43a6118 100644
    'sessions.sidebar.header.displayMode.showChats': 'Chat-Bereich anzeigen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Sitzungsstandards verwenden',
 diff --git c/packages/ui/src/lib/i18n/messages/en.ts w/packages/ui/src/lib/i18n/messages/en.ts
-index 4f95189ea..d71d135a3 100644
+index fca54b387..6a1d197bd 100644
 --- c/packages/ui/src/lib/i18n/messages/en.ts
 +++ w/packages/ui/src/lib/i18n/messages/en.ts
-@@ -3832,6 +3832,39 @@ export const dict = {
+@@ -3841,6 +3841,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Hide port {port} from this list',
    'contextPanel.browser.devServers.showHiddenSingle': 'Show {count} hidden port',
    'contextPanel.browser.devServers.showHiddenPlural': 'Show {count} hidden ports',
@@ -537,10 +552,10 @@ index 4f95189ea..d71d135a3 100644
    'sessions.sidebar.header.displayMode.showChats': 'Show chats section',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Use session defaults',
 diff --git c/packages/ui/src/lib/i18n/messages/es.ts w/packages/ui/src/lib/i18n/messages/es.ts
-index 5d8af803d..aa16e7f98 100644
+index bd74117c7..652e356a1 100644
 --- c/packages/ui/src/lib/i18n/messages/es.ts
 +++ w/packages/ui/src/lib/i18n/messages/es.ts
-@@ -3833,6 +3833,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ocultar el puerto {port} de esta lista',
    'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} puerto oculto',
    'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} puertos ocultos',
@@ -581,10 +596,10 @@ index 5d8af803d..aa16e7f98 100644
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar sección de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar los valores predeterminados de sesión',
 diff --git c/packages/ui/src/lib/i18n/messages/fr.ts w/packages/ui/src/lib/i18n/messages/fr.ts
-index 48ec26678..83cf6cf2f 100644
+index 1a9d06a97..31fea3bfe 100644
 --- c/packages/ui/src/lib/i18n/messages/fr.ts
 +++ w/packages/ui/src/lib/i18n/messages/fr.ts
-@@ -3831,6 +3831,39 @@ export const dict = {
+@@ -3840,6 +3840,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Masquer le port {port} de cette liste',
    'contextPanel.browser.devServers.showHiddenSingle': 'Afficher {count} port masqué',
    'contextPanel.browser.devServers.showHiddenPlural': 'Afficher {count} ports masqués',
@@ -625,10 +640,10 @@ index 48ec26678..83cf6cf2f 100644
    'sessions.sidebar.header.displayMode.showChats': 'Afficher la section des chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Utiliser les valeurs par défaut des sessions',
 diff --git c/packages/ui/src/lib/i18n/messages/he.ts w/packages/ui/src/lib/i18n/messages/he.ts
-index 8fbe28881..bcb6aede8 100644
+index 8d18dcd8b..671f1c73d 100644
 --- c/packages/ui/src/lib/i18n/messages/he.ts
 +++ w/packages/ui/src/lib/i18n/messages/he.ts
-@@ -3775,6 +3775,39 @@ export const dict = {
+@@ -3778,6 +3778,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'הסתר את פורט {port} מהרשימה',
    'contextPanel.browser.devServers.showHiddenSingle': 'הצג פורט מוסתר {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'הצג {count} פורטים מוסתרים',
@@ -669,10 +684,10 @@ index 8fbe28881..bcb6aede8 100644
    'sessions.sidebar.header.displayMode.showChats': 'הצג את מקטע הצ\'אטים',
    'sessions.scheduledTasks.editor.useDefaults.label': 'השתמש בברירות המחדל של ההפעלה',
 diff --git c/packages/ui/src/lib/i18n/messages/ja.ts w/packages/ui/src/lib/i18n/messages/ja.ts
-index dc63eaa08..76159ff1b 100644
+index 44a2de9db..71397f75e 100644
 --- c/packages/ui/src/lib/i18n/messages/ja.ts
 +++ w/packages/ui/src/lib/i18n/messages/ja.ts
-@@ -3832,6 +3832,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3841,6 +3841,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'ポート {port} をこの一覧から隠す',
    'contextPanel.browser.devServers.showHiddenSingle': '隠したポート {count} 件を表示',
    'contextPanel.browser.devServers.showHiddenPlural': '隠したポート {count} 件を表示',
@@ -713,10 +728,10 @@ index dc63eaa08..76159ff1b 100644
    'sessions.sidebar.header.displayMode.showChats': 'チャットセクションを表示',
    'sessions.scheduledTasks.editor.useDefaults.label': 'セッションの既定値を使う',
 diff --git c/packages/ui/src/lib/i18n/messages/ko.ts w/packages/ui/src/lib/i18n/messages/ko.ts
-index 023b72520..0996c970e 100644
+index 44b71a974..9f9af2450 100644
 --- c/packages/ui/src/lib/i18n/messages/ko.ts
 +++ w/packages/ui/src/lib/i18n/messages/ko.ts
-@@ -3832,6 +3832,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3841,6 +3841,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '이 목록에서 포트 {port} 숨기기',
    'contextPanel.browser.devServers.showHiddenSingle': '숨긴 포트 {count}개 표시',
    'contextPanel.browser.devServers.showHiddenPlural': '숨긴 포트 {count}개 표시',
@@ -757,10 +772,10 @@ index 023b72520..0996c970e 100644
    'sessions.sidebar.header.displayMode.showChats': '채팅 섹션 표시',
    'sessions.scheduledTasks.editor.useDefaults.label': '세션 기본값 사용',
 diff --git c/packages/ui/src/lib/i18n/messages/nl.ts w/packages/ui/src/lib/i18n/messages/nl.ts
-index 5b8d44c51..572e90b0f 100644
+index 3bc415326..fcf769799 100644
 --- c/packages/ui/src/lib/i18n/messages/nl.ts
 +++ w/packages/ui/src/lib/i18n/messages/nl.ts
-@@ -3832,6 +3832,39 @@ export const dict = {
+@@ -3841,6 +3841,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Poort {port} in deze lijst verbergen',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} verborgen poort tonen',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} verborgen poorten tonen',
@@ -801,10 +816,10 @@ index 5b8d44c51..572e90b0f 100644
    'sessions.sidebar.header.displayMode.showChats': 'Chatsectie tonen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Standaardinstellingen voor sessies gebruiken',
 diff --git c/packages/ui/src/lib/i18n/messages/pl.ts w/packages/ui/src/lib/i18n/messages/pl.ts
-index 48bb604cb..e60b89316 100644
+index 3ad15cd77..17441491c 100644
 --- c/packages/ui/src/lib/i18n/messages/pl.ts
 +++ w/packages/ui/src/lib/i18n/messages/pl.ts
-@@ -3837,6 +3837,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3846,6 +3846,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ukryj port {port} na tej liście',
    'contextPanel.browser.devServers.showHiddenSingle': 'Pokaż ukryte porty: {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'Pokaż ukryte porty: {count}',
@@ -845,10 +860,10 @@ index 48bb604cb..e60b89316 100644
    'sessions.sidebar.header.displayMode.showChats': 'Pokaż sekcję czatów',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Używaj domyślnych ustawień sesji',
 diff --git c/packages/ui/src/lib/i18n/messages/pt-BR.ts w/packages/ui/src/lib/i18n/messages/pt-BR.ts
-index 68f907696..5cf6d1a0c 100644
+index 86b885e4a..4ad60d336 100644
 --- c/packages/ui/src/lib/i18n/messages/pt-BR.ts
 +++ w/packages/ui/src/lib/i18n/messages/pt-BR.ts
-@@ -3833,6 +3833,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ocultar a porta {port} desta lista',
    'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} porta oculta',
    'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} portas ocultas',
@@ -889,10 +904,10 @@ index 68f907696..5cf6d1a0c 100644
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar seção de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar os padrões de sessão',
 diff --git c/packages/ui/src/lib/i18n/messages/tr.ts w/packages/ui/src/lib/i18n/messages/tr.ts
-index d79ffb949..7f6e8fe01 100644
+index 77abfe26f..768d0ccd9 100644
 --- c/packages/ui/src/lib/i18n/messages/tr.ts
 +++ w/packages/ui/src/lib/i18n/messages/tr.ts
-@@ -3830,6 +3830,39 @@ export const dict = {
+@@ -3839,6 +3839,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': '{port} bağlantı noktasını bu listede gizle',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} gizli bağlantı noktasını göster',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} gizli bağlantı noktasını göster',
@@ -933,10 +948,10 @@ index d79ffb949..7f6e8fe01 100644
    'sessions.sidebar.header.displayMode.showChats': 'Sohbetler bölümünü göster',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Oturum varsayılanlarını kullan',
 diff --git c/packages/ui/src/lib/i18n/messages/uk.ts w/packages/ui/src/lib/i18n/messages/uk.ts
-index e81137f88..9e3d7943d 100644
+index 99484aaf9..72055b95f 100644
 --- c/packages/ui/src/lib/i18n/messages/uk.ts
 +++ w/packages/ui/src/lib/i18n/messages/uk.ts
-@@ -3833,6 +3833,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Сховати порт {port} з цього списку',
    'contextPanel.browser.devServers.showHiddenSingle': 'Показати приховані порти: {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'Показати приховані порти: {count}',
@@ -977,10 +992,10 @@ index e81137f88..9e3d7943d 100644
    'sessions.sidebar.header.displayMode.showChats': 'Показувати розділ чатів',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Використовувати типові налаштування сесії',
 diff --git c/packages/ui/src/lib/i18n/messages/zh-CN.ts w/packages/ui/src/lib/i18n/messages/zh-CN.ts
-index 18912a9d6..5e19ec322 100644
+index 9018ebefd..4e4d0800f 100644
 --- c/packages/ui/src/lib/i18n/messages/zh-CN.ts
 +++ w/packages/ui/src/lib/i18n/messages/zh-CN.ts
-@@ -3833,6 +3833,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '从此列表中隐藏端口 {port}',
    'contextPanel.browser.devServers.showHiddenSingle': '显示 {count} 个已隐藏端口',
    'contextPanel.browser.devServers.showHiddenPlural': '显示 {count} 个已隐藏端口',
@@ -1021,10 +1036,10 @@ index 18912a9d6..5e19ec322 100644
    'sessions.sidebar.header.displayMode.showChats': '显示聊天分区',
    'sessions.scheduledTasks.editor.useDefaults.label': '使用会话默认设置',
 diff --git c/packages/ui/src/lib/i18n/messages/zh-TW.ts w/packages/ui/src/lib/i18n/messages/zh-TW.ts
-index 8ba7e3f87..e00e7ea8c 100644
+index 6307beca9..1ad81bd09 100644
 --- c/packages/ui/src/lib/i18n/messages/zh-TW.ts
 +++ w/packages/ui/src/lib/i18n/messages/zh-TW.ts
-@@ -3832,6 +3832,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3841,6 +3841,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '從此清單隱藏連接埠 {port}',
    'contextPanel.browser.devServers.showHiddenSingle': '顯示 {count} 個已隱藏連接埠',
    'contextPanel.browser.devServers.showHiddenPlural': '顯示 {count} 個已隱藏連接埠',
@@ -1065,10 +1080,10 @@ index 8ba7e3f87..e00e7ea8c 100644
    'sessions.sidebar.header.displayMode.showChats': '顯示聊天區段',
    'sessions.scheduledTasks.editor.useDefaults.label': '使用工作階段預設值',
 diff --git c/packages/web/server/lib/dev-servers/routes.js w/packages/web/server/lib/dev-servers/routes.js
-index c67d854ab..b7940ce48 100644
+index e71b890cf..8f1dc09bd 100644
 --- c/packages/web/server/lib/dev-servers/routes.js
 +++ w/packages/web/server/lib/dev-servers/routes.js
-@@ -18,6 +18,7 @@ import {
+@@ -19,6 +19,7 @@ import {
    parseProcNetTcpListeners,
    selectDevServerCandidates,
  } from './parse.js';
@@ -1076,7 +1091,7 @@ index c67d854ab..b7940ce48 100644
  
  const SCAN_TIMEOUT_MS = 2_500;
  /** Enumeration is cheap but not free; a short cache absorbs panel re-renders. */
-@@ -103,13 +104,16 @@ export const createDevServerScanner = ({ spawn, platform, readFile = fsPromises.
+@@ -127,13 +128,16 @@ export const createDevServerScanner = ({ spawn, platform, readFile = fsPromises.
          return result;
        }
  

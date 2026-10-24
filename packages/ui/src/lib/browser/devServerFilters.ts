@@ -90,7 +90,7 @@ export const useDevServerFilterRules = (): readonly string[] =>
 export type FilterableDevServer = {
   readonly port: number;
   readonly url: string;
-  readonly command: string;
+  readonly command?: string;
   readonly announced: boolean;
   readonly docker?: DevServerDockerInfo;
   readonly forward?: DevServerForwardInfo;
@@ -176,7 +176,10 @@ type ResolvedValue = { readonly exists: boolean; readonly value?: string | numbe
 const resolveField = (server: FilterableDevServer, field: string): ResolvedValue => {
   switch (field) {
     case 'port': return { exists: true, value: server.port };
-    case 'command': return { exists: server.command.length > 0, value: server.command };
+    case 'command': {
+      const command = server.command ?? '';
+      return { exists: command.length > 0, value: command };
+    }
     case 'url': return { exists: true, value: server.url };
     case 'host': {
       try { return { exists: true, value: new URL(server.url).hostname }; }

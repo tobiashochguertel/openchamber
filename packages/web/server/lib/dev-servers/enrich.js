@@ -148,7 +148,7 @@ export const collectProcessCwds = async (runCommand, pids) => {
   const cwds = new Map();
   if (pids.length === 0) return cwds;
   const output = await runCommand(
-    'lsof', ['-a', '-d', 'cwd', '-F', 'pn', '-p', pids.join(',')], PS_TIMEOUT_MS,
+    'lsof', ['-a', '-d', 'cwd', '-p', pids.join(','), '-F', 'pn'], PS_TIMEOUT_MS,
   );
   if (output === null) return cwds;
   let pid = null;
@@ -201,17 +201,23 @@ const projectOf = ({ docker, cwd }) => {
  */
 export const enrichServers = async (servers, { runCommand }) => {
   const pids = [...new Set(servers.map((server) => server.pid).filter((pid) => pid !== null))];
+  // Discovery already attaches `directory` from its own cwd lookup; only the
+  // servers it could not resolve need a second lsof here.
+  const cwdPids = [...new Set(
+    servers.filter((server) => server.directory === undefined)
+      .map((server) => server.pid).filter((pid) => pid !== null),
+  )];
   const [dockerPorts, processArgs, processCwds] = await Promise.all([
     collectDockerPorts(runCommand),
     collectProcessArgs(runCommand, pids),
-    collectProcessCwds(runCommand, pids),
+    collectProcessCwds(runCommand, cwdPids),
   ]);
   const forwards = collectSshForwards(processArgs);
   return servers.map((server) => {
     const docker = dockerPorts.get(server.port);
     const forward = docker ? null : forwards.get(server.port) ?? null;
     const argv = server.pid === null ? null : processArgs.get(server.pid) ?? null;
-    const cwd = server.pid === null ? null : processCwds.get(server.pid) ?? null;
+    const cwd = server.directory ?? (server.pid === null ? null : processCwds.get(server.pid) ?? null);
     const enriched = {
       ...server,
       source: sourceOf({ docker, forward, argv }),
