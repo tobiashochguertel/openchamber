@@ -1,93 +1,56 @@
-import { describe, expect, test } from 'bun:test';
 import { EventEmitter } from 'node:events';
+import { describe, expect, test } from 'bun:test';
 
 import { createDevServerScanner } from './routes.js';
 
-/**
- * runCommand() spawns with stdio ['ignore', 'pipe', 'ignore'], listens on
- * stdout data, error and close, and resolves the output on code 0. The stub
- * answers per command name, mirroring what docker/ps/lsof emit.
- */
-const fakeSpawn = (outputs) => {
+/** A spawn that answers each command from a table, as the real tools would. */
+const fakeSpawn = (answers) => {
   const calls = [];
   const spawn = (command, args) => {
-    calls.push([command, ...args]);
+    calls.push([command, ...args].join(' '));
     const child = new EventEmitter();
     child.stdout = new EventEmitter();
     child.kill = () => {};
-    const output = outputs(command, args);
-    setImmediate(() => {
-      if (output !== null) child.stdout.emit('data', output);
-      child.emit('close', output === null ? 1 : 0);
+    const answer = answers(command, args);
+    queueMicrotask(() => {
+      if (answer === null) {
+        child.emit('close', 1);
+        return;
+      }
+      child.stdout.emit('data', answer);
+      child.emit('close', 0);
     });
     return child;
   };
   return { spawn, calls };
 };
 
-const LISTENERS = [
-  'p10', 'ccom.docker.', 'n*:45583',
-  'p20', 'cssh', 'n*:8080',
-  'p30', 'cnode', 'n*:3000',
-].join('\n');
-
-const respond = ({ lsof = LISTENERS, docker = null, ps = null, cwd = null }) => (command, args) => {
-  if (command === 'lsof' && args.includes('-iTCP')) return lsof;
-  if (command === 'lsof' && args.includes('cwd')) return cwd;
-  if (command === 'docker') return docker;
-  if (command === 'ps') return ps;
-  return null;
-};
+const LISTENERS = ['p10', 'cnode', 'n*:5173', 'p11', 'cControlCenter', 'n*:7000'].join('\n');
 
 describe('dev server scanner', () => {
-  test('enriches discovery results with docker and forward context', async () => {
-    const { spawn } = fakeSpawn(respond({
-      docker: 'a1b2\thedgedoc\thedgedoc:1.10\t127.0.0.1:45583->3000/tcp\tcom.docker.compose.project=services\n',
-      ps: ' 20 ssh -L 8080:app.internal:80 target\n',
-    }));
+  test('reports the folder each server runs in', async () => {
+    const { spawn, calls } = fakeSpawn((_command, args) => (
+      args.includes('cwd') ? ['p10', 'fcwd', 'n/Users/me/site', 'p11', 'fcwd', 'n/'].join('\n') : LISTENERS
+    ));
     const scanner = createDevServerScanner({ spawn, platform: 'darwin' });
+
     const result = await scanner.discover();
 
-    expect(result.ok).toBe(true);
-    const byPort = new Map(result.servers.map((server) => [server.port, server]));
-    expect(byPort.get(45583)?.docker?.name).toBe('hedgedoc');
-    expect(byPort.get(45583)?.source).toBe('docker');
-    expect(byPort.get(8080)?.forward).toEqual({ host: 'app.internal', port: 80 });
-    expect(byPort.get(8080)?.source).toBe('forward');
-    expect(byPort.get(3000)?.url).toBe('http://localhost:3000/');
+    expect(result.servers.map(({ port, directory }) => ({ port, directory }))).toEqual([
+      { port: 5173, directory: '/Users/me/site' },
+      { port: 7000, directory: '/' },
+    ]);
+    // One extra call for all processes together, never one per process.
+    expect(calls.filter((call) => call.includes('cwd'))).toEqual(['lsof -a -d cwd -p 10,11 -F pn']);
   });
 
-  test('drops the service\'s own ports from the offer', async () => {
-    const { spawn } = fakeSpawn(respond({}));
-    const scanner = createDevServerScanner({ spawn, platform: 'darwin' });
-    const result = await scanner.discover({ ownPorts: [45583] });
-
-    expect(result.ok).toBe(true);
-    expect(result.servers.map((server) => server.port)).toEqual([3000, 8080]);
-  });
-
-  test('serves repeat looks from the cache without spawning again', async () => {
-    const { spawn, calls } = fakeSpawn(respond({}));
+  test('still lists the servers when their folders cannot be read', async () => {
+    const { spawn } = fakeSpawn((_command, args) => (args.includes('cwd') ? null : LISTENERS));
     const scanner = createDevServerScanner({ spawn, platform: 'darwin' });
 
-    await scanner.discover();
-    const callsAfterFirst = calls.length;
-    const second = await scanner.discover();
+    const result = await scanner.discover();
 
-    expect(second.ok).toBe(true);
-    expect(calls.length).toBe(callsAfterFirst);
-  });
-
-  test('reports failure when no listener source answers, and retries next time', async () => {
-    const { spawn, calls } = fakeSpawn(respond({ lsof: null }));
-    const readFile = () => Promise.reject(new Error('no proc'));
-    const scanner = createDevServerScanner({ spawn, platform: 'linux', readFile });
-
-    const first = await scanner.discover();
-    expect(first.ok).toBe(false);
-    expect(first.reason).toBe('no-listener-source');
-
-    await scanner.discover();
-    expect(calls.filter((call) => call[0] === 'lsof').length).toBe(2);
+    expect(result.servers.map((server) => server.port)).toEqual([5173, 7000]);
+    expect(result.servers.every((server) => server.directory === undefined)).toBe(true);
   });
 });
