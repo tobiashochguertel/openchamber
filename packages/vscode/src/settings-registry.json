@@ -249,6 +249,9 @@
     "tunnelMode": {
       "scope": "instance"
     },
+    "tunnelHttpsPort": {
+      "scope": "instance"
+    },
     "tunnelBootstrapTtlMs": {
       "scope": "instance"
     },
@@ -582,6 +585,9 @@
     "walkthroughModelOverride": {
       "scope": "profile"
     },
+    "walkthroughModelVariant": {
+      "scope": "profile"
+    },
     "fallbackModel": {
       "scope": "profile"
     },
@@ -780,6 +786,10 @@
       "local": true
     },
     "isSidebarOpen": {
+      "scope": "device",
+      "local": true
+    },
+    "sidebarFoldedForExpandedZone": {
       "scope": "device",
       "local": true
     },
