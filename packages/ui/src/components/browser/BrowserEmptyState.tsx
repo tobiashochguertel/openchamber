@@ -6,6 +6,7 @@ import { Icon } from '@/components/icon/Icon';
 import { OpenChamberLogo } from '@/components/ui/OpenChamberLogo';
 import { useI18n } from '@/lib/i18n';
 import {
+  devServerContextLabel,
   fetchDevServers,
   mergeDevServerCandidates,
   placeDevServerCandidates,
@@ -21,6 +22,10 @@ import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { useSpaceMarkLabel } from '@/lib/spaces/space-mark';
 import { useSpaceDirectoryStopped } from '@/lib/spaces/spaces-store';
 import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts } from '@/lib/browser/hiddenDevServers';
+import { setDevServerLabel, useDevServerLabels } from '@/lib/browser/devServerLabels';
+import { isDevServerVisibleByRules, useDevServerFilterRules } from '@/lib/browser/devServerFilters';
+import { DevServerLabelDialog } from './DevServerLabelDialog';
+import { DevServerSettingsDialog } from './DevServerSettingsDialog';
 
 /**
  * What the panel shows before anything is loaded.
@@ -30,16 +35,6 @@ import { hideDevServerPort, showHiddenDevServerPorts, useHiddenDevServerPorts } 
  * stated plainly instead of being rendered as "nothing is running" — the two
  * mean very different things to someone whose dev server is definitely up.
  */
-
-/** The base path a server is served under, or '' when it sits at the root. */
-const pathLabel = (url: string): string => {
-  try {
-    const path = new URL(url).pathname;
-    return path === '/' ? '' : path;
-  } catch {
-    return '';
-  }
-};
 
 /**
  * Re-checked while the panel shows this tab: a project's servers appear seconds
@@ -122,14 +117,23 @@ export const BrowserEmptyState: React.FC<{
   // user started it, so it is no longer noise. Servers started outside every
   // project wait behind the same "show hidden" link as ports the user hid.
   const hiddenPorts = useHiddenDevServerPorts();
+  const labels = useDevServerLabels();
+  const filterRules = useDevServerFilterRules();
+  const [nameTarget, setNameTarget] = React.useState<number | null>(null);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [showOutsideWork, setShowOutsideWork] = React.useState(false);
   const visibleCandidates = React.useMemo(
-    () => candidates.filter((candidate) => candidate.announced || (
-      !hiddenPorts.includes(candidate.port) && (showOutsideWork || !candidate.outsideWork)
-    )),
-    [candidates, hiddenPorts, showOutsideWork],
+    () => candidates.filter((candidate) =>
+      (candidate.announced || (
+        !hiddenPorts.includes(candidate.port) && (showOutsideWork || !candidate.outsideWork)
+      ))
+      && isDevServerVisibleByRules(candidate, filterRules),
+    ),
+    [candidates, hiddenPorts, showOutsideWork, filterRules],
   );
-  const hiddenCount = candidates.length - visibleCandidates.length;
+  const hiddenCount = candidates.filter(
+    (candidate) => !candidate.announced && hiddenPorts.includes(candidate.port),
+  ).length;
 
   return (
     // The whole panel must not scroll: a centred column that overflows clips its
@@ -144,18 +148,33 @@ export const BrowserEmptyState: React.FC<{
 
       {candidates.length > 0 ? (
         <div className="flex min-h-0 w-full max-w-sm flex-col gap-1">
-          <span className="shrink-0 typography-micro text-start text-muted-foreground">
-            {announced.length > 0
-              ? t('contextPanel.browser.devServers.justStarted')
-              : t('contextPanel.browser.devServers.title')}
-          </span>
+          <div className="flex shrink-0 items-center justify-between gap-2">
+            <span className="typography-micro text-start text-muted-foreground">
+              {announced.length > 0
+                ? t('contextPanel.browser.devServers.justStarted')
+                : t('contextPanel.browser.devServers.title')}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0 text-muted-foreground"
+              onClick={() => setSettingsOpen(true)}
+              aria-label={t('contextPanel.browser.devServers.configure')}
+              title={t('contextPanel.browser.devServers.configure')}
+            >
+              <Icon name="settings-3" className="size-3.5" aria-hidden="true" />
+            </Button>
+          </div>
           {remoteOnly && !spaceUnreachable ? (
             <span className="shrink-0 pb-1 text-start typography-micro text-muted-foreground">
               {t('contextPanel.browser.devServers.remoteOnly')}
             </span>
           ) : null}
           <div className="flex min-h-0 flex-col gap-1 overflow-y-auto pe-0.5">
-            {visibleCandidates.map((candidate) => (
+            {visibleCandidates.map((candidate) => {
+              const customLabel = labels[String(candidate.port)];
+              return (
               <div key={candidate.port} className="group/server flex shrink-0 items-center gap-1">
                 <Button
                   type="button"
@@ -165,6 +184,7 @@ export const BrowserEmptyState: React.FC<{
                   // tooltips of the two marks that say why the row does not open.
                   className={cn('min-w-0 flex-1 justify-start gap-2', remoteOnly && 'cursor-default opacity-60')}
                   aria-disabled={remoteOnly || undefined}
+                  title={customLabel ? candidate.url : undefined}
                   onClick={() => {
                     if (remoteOnly) return;
                     // The offer is answered; leaving it up would keep suggesting
@@ -185,10 +205,7 @@ export const BrowserEmptyState: React.FC<{
                   ) : (
                     <Icon name="global" className="size-3.5 shrink-0" aria-hidden="true" />
                   )}
-                  <span className="truncate">
-                    {browserUrlLabel(candidate.url) || candidate.url}
-                    <span className="typography-micro text-muted-foreground">{pathLabel(candidate.url)}</span>
-                  </span>
+                  <span className="truncate">{customLabel ?? (browserUrlLabel(candidate.url) || candidate.url)}</span>
                   {spaceUnreachable ? (
                     <span
                       className="ms-auto shrink-0 text-muted-foreground"
@@ -206,7 +223,22 @@ export const BrowserEmptyState: React.FC<{
                       <Icon name="folder" className="size-3 shrink-0" aria-hidden="true" />
                       <span className="truncate" dir="auto">{candidate.folderName}</span>
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="ms-auto truncate typography-micro text-muted-foreground">
+                      {devServerContextLabel(candidate)}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground opacity-0 group-hover/server:opacity-100 focus-visible:opacity-100"
+                  onClick={() => setNameTarget(candidate.port)}
+                  aria-label={t('contextPanel.browser.devServers.name', { port: candidate.port })}
+                  title={t('contextPanel.browser.devServers.name', { port: candidate.port })}
+                >
+                  <Icon name="pencil" className="size-3.5" aria-hidden="true" />
                 </Button>
                 {candidate.announced ? null : (
                   <Button
@@ -222,7 +254,8 @@ export const BrowserEmptyState: React.FC<{
                   </Button>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
           {hiddenCount > 0 ? (
             <Button
@@ -248,6 +281,18 @@ export const BrowserEmptyState: React.FC<{
           {t('contextPanel.browser.devServers.unavailable')}
         </span>
       ) : null}
+
+      <DevServerLabelDialog
+        port={nameTarget}
+        currentLabel={nameTarget !== null ? (labels[String(nameTarget)] ?? '') : ''}
+        onRename={setDevServerLabel}
+        onClose={() => setNameTarget(null)}
+      />
+      <DevServerSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        servers={candidates}
+      />
     </div>
   );
 };
