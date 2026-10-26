@@ -10,38 +10,15 @@ import { z } from 'zod';
 import { normalizePath } from '@/lib/pathNormalization';
 import { runtimeFetch } from '@/lib/runtime-fetch';
 
-export type DevServerDockerInfo = {
-  readonly id: string;
-  readonly name: string;
-  readonly image: string;
-  readonly labels: Readonly<Record<string, string>>;
-};
-
-export type DevServerForwardInfo = {
-  readonly host: string;
-  readonly port: number;
-};
-
 const discoveredServerSchema = z.object({
   port: z.number().int().positive(),
   url: z.string().min(1),
   command: z.string(),
   /** The folder the process runs in; absent where the server could not tell. */
   directory: z.string().min(1).optional(),
-  docker: z.object({
-    id: z.string(),
-    name: z.string(),
-    image: z.string(),
-    labels: z.record(z.string(), z.string()),
-  }).optional(),
-  forward: z.object({ host: z.string(), port: z.number() }).optional(),
-  source: z.enum(['docker', 'forward', 'system', 'process']).optional(),
-  project: z.string().optional(),
-  commandLine: z.string().optional(),
-  cwd: z.string().optional(),
 });
 
-export type DiscoveredDevServer = z.infer<typeof discoveredServerSchema>;
+type DiscoveredDevServer = z.infer<typeof discoveredServerSchema>;
 
 export type DevServerDiscovery =
   | { readonly kind: 'loading' }
@@ -101,42 +78,13 @@ export const probeLoopbackStatus = async (url: string): Promise<number | null> =
   }
 };
 
-export type DevServerCandidate = {
+type DevServerCandidate = {
   readonly url: string;
   readonly port: number;
-  /** The owning process's command name, or '' when discovery did not supply one. */
-  readonly command?: string;
   /** Present when a server announced this address itself. */
   readonly announced: boolean;
   /** The folder the process runs in, when discovery could tell. */
   readonly directory?: string;
-  readonly docker?: DevServerDockerInfo;
-  readonly forward?: DevServerForwardInfo;
-  readonly source?: 'docker' | 'forward' | 'system' | 'process';
-  readonly project?: string;
-  readonly commandLine?: string;
-  readonly cwd?: string;
-};
-
-/**
- * What a row says under the address: the container that published the port,
- * the host a forward points at, the project a process belongs to, the owning
- * process, or the base path. A bare `ssh` or `node` says less than any of these.
- */
-export const devServerContextLabel = (candidate: DevServerCandidate): string => {
-  if (candidate.docker) return candidate.docker.name;
-  if (candidate.forward) return `${candidate.forward.host}:${candidate.forward.port}`;
-  if (candidate.project) return candidate.project;
-  return candidate.command || pathLabel(candidate.url);
-};
-
-const pathLabel = (url: string): string => {
-  try {
-    const path = new URL(url).pathname;
-    return path === '/' ? '' : path;
-  } catch {
-    return '';
-  }
 };
 
 const portOf = (url: string): number | null => {
@@ -177,7 +125,7 @@ export const mergeDevServerCandidates = ({
 
   if (!discovered) {
     return [...announcedByPort.entries()]
-      .map(([port, url]) => ({ url, port, command: '', announced: true }))
+      .map(([port, url]) => ({ url, port, announced: true }))
       .sort((left, right) => left.port - right.port);
   }
 
@@ -187,15 +135,8 @@ export const mergeDevServerCandidates = ({
       return {
         url: announcedUrl ?? server.url,
         port: server.port,
-        command: server.command,
         announced: announcedUrl !== undefined,
         directory: server.directory,
-        docker: server.docker,
-        forward: server.forward,
-        source: server.source,
-        project: server.project,
-        commandLine: server.commandLine,
-        cwd: server.cwd,
       };
     })
     .sort((left, right) => {
