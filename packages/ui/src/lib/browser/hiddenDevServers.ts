@@ -62,18 +62,6 @@ export const showHiddenDevServerPorts = (): void => {
   write(next);
 };
 
-export const unhideDevServerPort = (port: number): void => {
-  const runtimeKey = getRuntimeKey();
-  const stored = read();
-  const current = stored[runtimeKey] ?? [];
-  if (!current.includes(port)) return;
-  const remaining = current.filter((entry) => entry !== port);
-  const next = { ...stored };
-  if (remaining.length === 0) delete next[runtimeKey];
-  else next[runtimeKey] = remaining;
-  write(next);
-};
-
 const subscribe = (listener: () => void): (() => void) => {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
