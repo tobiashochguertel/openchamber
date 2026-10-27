@@ -280,12 +280,24 @@ CLI use this server path. VS Code uses the same executor from its extension host
 Bundled Desktop, external URL connections, and unavailable CLIs remain
 unsupported at the host boundary.
 
-An upgrade leaves the current server running. The toast's Reload action restarts
-it using the installed version. Failed installations return an error and can be
+On macOS and Linux an upgrade leaves the current server running, and the toast's
+Reload action restarts it using the installed version. On Windows the managed
+server stops for the install and starts again afterwards, also when the install
+fails (`restartOpenCode(reason, { whileStopped })`; VS Code does the same with
+its own stop and start). Failed installations return an error and can be
 retried; installer output is not returned or logged because it can contain registry
 credentials. Requests from multiple clients share the in-flight operation. The
 executor supplies EOF and bounds captured output; installation has no fixed time
 limit, and the VS Code bridge does not apply its usual 30-second request timeout.
+
+### Why Windows stops the server for an upgrade and not lets OpenCode handle it
+
+Windows refuses to delete the last link of a running executable. OpenCode guards
+its own upgrade process and `serve --service` by holding a second link in its
+cache, but our `serve --stdio` server gets no such link. npm then cannot replace
+`opencode.exe` and leaves the package without it, so every later start fails
+until the user reinstalls OpenCode. Stopping the server costs a few seconds of
+downtime that the Reload action would cost anyway.
 
 ### Migrating an installed v1 CLI
 
@@ -563,8 +575,14 @@ page; a package directory or a v1 `plugin/` file is listed as a package that
 OpenCode loads and OpenChamber does not touch.
 
 A configured plugin spec is classified by `parsedKindForSpec`
-(`plugin-spec.js`): a filesystem path is `path`, a Git package spec is `git`,
-anything else is `npm`. The Git forms are the ones OpenCode 2 documents — the
+(`plugin-spec.js`): an OpenCode 2 control entry is `control`, a filesystem path
+is `path`, a Git package spec is `git`, anything else is `npm`. A control entry
+switches plugins OpenCode already knows: `-name` disables the plugin with that
+id (`-*` and `-prefix.*` disable a group), and `*`, `prefix.*` and
+`opencode.<name>` enable them again. It names no package, so the registry route
+skips it, the card shows no load status, and it takes no options: OpenCode reads
+`-name` as a control entry only as a bare string, and `{package: "-name"}` as a
+package to install. The Git forms are the ones OpenCode 2 documents — the
 hosted shortcuts (`github:`, `gitlab:`, `bitbucket:`, `gist:`), the `git+`
 transports (`git+https://`, `git+ssh://`, `git+file://`) and bare `git://`,
 each with an optional `#ref` and npm `::path:` subdirectory. A Git spec must
@@ -628,7 +646,7 @@ A plugin entry is written only when OpenCode 2 can load its spec
 (`Npm.isInstallablePackage` in `packages/util/src/npm.ts`): an npm name with
 an optional version, tag or range, a Git spec (`github:owner/repo`,
 `git+https://…`, `git+ssh://…#ref`, `git@host:owner/repo.git`, `owner/repo`),
-or a local path. Anything else is refused with `UNLOADABLE_SPEC`, which the route
+a local path, or a control entry. Anything else is refused with `UNLOADABLE_SPEC`, which the route
 answers as 400 with `code`, and the add dialog shows under the field. An
 existing entry keeps its spec when only its options change, so a config that
 already holds an unloadable spec stays editable.
