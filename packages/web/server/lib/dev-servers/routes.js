@@ -19,7 +19,6 @@ import {
   parseProcNetTcpListeners,
   selectDevServerCandidates,
 } from './parse.js';
-import { enrichServers } from './enrich.js';
 
 const SCAN_TIMEOUT_MS = 2_500;
 /** Enumeration is cheap but not free; a short cache absorbs panel re-renders. */
@@ -128,16 +127,13 @@ export const createDevServerScanner = ({ spawn, platform, readFile = fsPromises.
         return result;
       }
 
-      const rawServers = selectDevServerCandidates(result.listeners, {
+      const servers = selectDevServerCandidates(result.listeners, {
         ownPorts,
         ownPids: [process.pid],
       }).map((entry) => ({
         ...entry,
         url: `http://localhost:${entry.port}/`,
       }));
-      const servers = await enrichServers(rawServers, {
-        runCommand: (command, args, timeoutMs) => runCommand(spawn, command, args, timeoutMs),
-      });
 
       const value = { ok: true, servers };
       cache = { at: now, value };
