@@ -19,7 +19,6 @@ import {
   parseProcNetTcpListeners,
   selectDevServerCandidates,
 } from './parse.js';
-import { enrichServers } from './enrich.js';
 
 const SCAN_TIMEOUT_MS = 2_500;
 /** Enumeration is cheap but not free; a short cache absorbs panel re-renders. */
@@ -51,21 +50,24 @@ const runCommand = (spawn, command, args, timeoutMs) => new Promise((resolve) =>
 });
 
 /**
- * Reads the kernel's socket tables. Containers routinely ship without `lsof`,
- * and a deployed OpenChamber is precisely where discovery has to work, so this
- * is tried whenever the command is unavailable.
+ * Reads the kernel's socket tables, which list every listener whoever owns it.
+ * Containers routinely ship without `lsof`, and an unprivileged `lsof` exits
+ * cleanly while leaving out other users' sockets, such as the root-owned
+ * `docker-proxy` behind a published container port.
  */
 const readProcListeners = async (readFile) => {
   const tables = await Promise.all(['/proc/net/tcp', '/proc/net/tcp6'].map(
     (path) => readFile(path, 'utf8').catch(() => null),
   ));
   if (tables.every((table) => table === null)) return null;
+  return tables.flatMap((table) => (table === null ? [] : parseProcNetTcpListeners(table)));
+};
+
+/** The first entry for a port wins, so list the source with a pid and command first. */
+const mergeListenersByPort = (listeners) => {
   const byPort = new Map();
-  for (const table of tables) {
-    if (table === null) continue;
-    for (const entry of parseProcNetTcpListeners(table)) {
-      if (!byPort.has(entry.port)) byPort.set(entry.port, entry);
-    }
+  for (const entry of listeners) {
+    if (!byPort.has(entry.port)) byPort.set(entry.port, entry);
   }
   return [...byPort.values()].sort((left, right) => left.port - right.port);
 };
@@ -99,15 +101,15 @@ export const createDevServerScanner = ({ spawn, platform, readFile = fsPromises.
       return { ok: true, listeners: parseNetstatListeners(output) };
     }
 
-    const output = await runCommand(spawn, 'lsof', ['-iTCP', '-sTCP:LISTEN', '-P', '-n', '-F', 'pcn'], SCAN_TIMEOUT_MS);
-    if (output !== null) {
-      return { ok: true, listeners: await withProcessDirectories(spawn, parseLsofListeners(output)) };
-    }
+    const [lsofOutput, procListeners] = await Promise.all([
+      runCommand(spawn, 'lsof', ['-iTCP', '-sTCP:LISTEN', '-P', '-n', '-F', 'pcn'], SCAN_TIMEOUT_MS),
+      readProcListeners(readFile),
+    ]);
+    if (lsofOutput === null && procListeners === null) return { ok: false, reason: 'no-listener-source' };
 
-    const procListeners = await readProcListeners(readFile);
-    if (procListeners !== null) return { ok: true, listeners: procListeners };
-
-    return { ok: false, reason: 'no-listener-source' };
+    const lsofListeners = lsofOutput === null ? [] : parseLsofListeners(lsofOutput);
+    const listeners = mergeListenersByPort([...lsofListeners, ...(procListeners ?? [])]);
+    return { ok: true, listeners: await withProcessDirectories(spawn, listeners) };
   };
 
   return {
@@ -128,16 +130,13 @@ export const createDevServerScanner = ({ spawn, platform, readFile = fsPromises.
         return result;
       }
 
-      const rawServers = selectDevServerCandidates(result.listeners, {
+      const servers = selectDevServerCandidates(result.listeners, {
         ownPorts,
         ownPids: [process.pid],
       }).map((entry) => ({
         ...entry,
         url: `http://localhost:${entry.port}/`,
       }));
-      const servers = await enrichServers(rawServers, {
-        runCommand: (command, args, timeoutMs) => runCommand(spawn, command, args, timeoutMs),
-      });
 
       const value = { ok: true, servers };
       cache = { at: now, value };
