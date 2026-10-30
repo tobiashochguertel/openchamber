@@ -12,7 +12,7 @@ index d8b1f0603..25c07b7b1 100644
  
  - you press **Open preview** on a local address in the terminal
 diff --git c/packages/ui/src/components/browser/BrowserEmptyState.tsx w/packages/ui/src/components/browser/BrowserEmptyState.tsx
-index 542dcc242..d38208f7e 100644
+index d0ba6bf93..fe43f95e2 100644
 --- c/packages/ui/src/components/browser/BrowserEmptyState.tsx
 +++ w/packages/ui/src/components/browser/BrowserEmptyState.tsx
 @@ -6,6 +6,7 @@ import { Icon } from '@/components/icon/Icon';
@@ -420,10 +420,10 @@ index 661fb9bf0..32447bd6e 100644
    listeners.add(listener);
    return () => { listeners.delete(listener); };
 diff --git c/packages/ui/src/lib/i18n/messages/ar.ts w/packages/ui/src/lib/i18n/messages/ar.ts
-index ceaa53503..1c79b5c6c 100644
+index 420f82431..20c09629c 100644
 --- c/packages/ui/src/lib/i18n/messages/ar.ts
 +++ w/packages/ui/src/lib/i18n/messages/ar.ts
-@@ -3778,6 +3778,39 @@ export const dict = {
+@@ -3808,6 +3808,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'إخفاء المنفذ {port} من هذه القائمة',
    'contextPanel.browser.devServers.showHiddenSingle': 'إظهار {count} منفذ مخفي',
    'contextPanel.browser.devServers.showHiddenPlural': 'إظهار {count} منافذ مخفية',
@@ -464,10 +464,10 @@ index ceaa53503..1c79b5c6c 100644
    'sessions.sidebar.header.displayMode.showChats': 'إظهار قسم المحادثات',
    'sessions.scheduledTasks.editor.useDefaults.label': 'استخدام الإعدادات الافتراضية للجلسة',
 diff --git c/packages/ui/src/lib/i18n/messages/de.ts w/packages/ui/src/lib/i18n/messages/de.ts
-index 9fa2354b8..4b75aea41 100644
+index 906d1b14a..97026aa19 100644
 --- c/packages/ui/src/lib/i18n/messages/de.ts
 +++ w/packages/ui/src/lib/i18n/messages/de.ts
-@@ -3839,6 +3839,39 @@ export const dict = {
+@@ -3879,6 +3879,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Port {port} in dieser Liste ausblenden',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} ausgeblendeten Port anzeigen',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} ausgeblendete Ports anzeigen',
@@ -508,10 +508,10 @@ index 9fa2354b8..4b75aea41 100644
    'sessions.sidebar.header.displayMode.showChats': 'Chat-Bereich anzeigen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Sitzungsstandards verwenden',
 diff --git c/packages/ui/src/lib/i18n/messages/en.ts w/packages/ui/src/lib/i18n/messages/en.ts
-index fca54b387..6a1d197bd 100644
+index 5d8e451c4..b3372161e 100644
 --- c/packages/ui/src/lib/i18n/messages/en.ts
 +++ w/packages/ui/src/lib/i18n/messages/en.ts
-@@ -3841,6 +3841,39 @@ export const dict = {
+@@ -3881,6 +3881,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Hide port {port} from this list',
    'contextPanel.browser.devServers.showHiddenSingle': 'Show {count} hidden port',
    'contextPanel.browser.devServers.showHiddenPlural': 'Show {count} hidden ports',
@@ -552,10 +552,10 @@ index fca54b387..6a1d197bd 100644
    'sessions.sidebar.header.displayMode.showChats': 'Show chats section',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Use session defaults',
 diff --git c/packages/ui/src/lib/i18n/messages/es.ts w/packages/ui/src/lib/i18n/messages/es.ts
-index bd74117c7..652e356a1 100644
+index 943b09442..6489a4d8a 100644
 --- c/packages/ui/src/lib/i18n/messages/es.ts
 +++ w/packages/ui/src/lib/i18n/messages/es.ts
-@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3882,6 +3882,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ocultar el puerto {port} de esta lista',
    'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} puerto oculto',
    'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} puertos ocultos',
@@ -596,10 +596,10 @@ index bd74117c7..652e356a1 100644
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar sección de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar los valores predeterminados de sesión',
 diff --git c/packages/ui/src/lib/i18n/messages/fr.ts w/packages/ui/src/lib/i18n/messages/fr.ts
-index 1a9d06a97..31fea3bfe 100644
+index 6e4b45626..64abcc953 100644
 --- c/packages/ui/src/lib/i18n/messages/fr.ts
 +++ w/packages/ui/src/lib/i18n/messages/fr.ts
-@@ -3840,6 +3840,39 @@ export const dict = {
+@@ -3880,6 +3880,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Masquer le port {port} de cette liste',
    'contextPanel.browser.devServers.showHiddenSingle': 'Afficher {count} port masqué',
    'contextPanel.browser.devServers.showHiddenPlural': 'Afficher {count} ports masqués',
@@ -640,10 +640,10 @@ index 1a9d06a97..31fea3bfe 100644
    'sessions.sidebar.header.displayMode.showChats': 'Afficher la section des chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Utiliser les valeurs par défaut des sessions',
 diff --git c/packages/ui/src/lib/i18n/messages/he.ts w/packages/ui/src/lib/i18n/messages/he.ts
-index 8d18dcd8b..671f1c73d 100644
+index 214772774..9f17d8155 100644
 --- c/packages/ui/src/lib/i18n/messages/he.ts
 +++ w/packages/ui/src/lib/i18n/messages/he.ts
-@@ -3778,6 +3778,39 @@ export const dict = {
+@@ -3808,6 +3808,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'הסתר את פורט {port} מהרשימה',
    'contextPanel.browser.devServers.showHiddenSingle': 'הצג פורט מוסתר {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'הצג {count} פורטים מוסתרים',
@@ -684,10 +684,10 @@ index 8d18dcd8b..671f1c73d 100644
    'sessions.sidebar.header.displayMode.showChats': 'הצג את מקטע הצ\'אטים',
    'sessions.scheduledTasks.editor.useDefaults.label': 'השתמש בברירות המחדל של ההפעלה',
 diff --git c/packages/ui/src/lib/i18n/messages/ja.ts w/packages/ui/src/lib/i18n/messages/ja.ts
-index 44a2de9db..71397f75e 100644
+index 12817812c..46c224895 100644
 --- c/packages/ui/src/lib/i18n/messages/ja.ts
 +++ w/packages/ui/src/lib/i18n/messages/ja.ts
-@@ -3841,6 +3841,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3881,6 +3881,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'ポート {port} をこの一覧から隠す',
    'contextPanel.browser.devServers.showHiddenSingle': '隠したポート {count} 件を表示',
    'contextPanel.browser.devServers.showHiddenPlural': '隠したポート {count} 件を表示',
@@ -728,10 +728,10 @@ index 44a2de9db..71397f75e 100644
    'sessions.sidebar.header.displayMode.showChats': 'チャットセクションを表示',
    'sessions.scheduledTasks.editor.useDefaults.label': 'セッションの既定値を使う',
 diff --git c/packages/ui/src/lib/i18n/messages/ko.ts w/packages/ui/src/lib/i18n/messages/ko.ts
-index 44b71a974..9f9af2450 100644
+index a52d8a249..1621b02d2 100644
 --- c/packages/ui/src/lib/i18n/messages/ko.ts
 +++ w/packages/ui/src/lib/i18n/messages/ko.ts
-@@ -3841,6 +3841,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3881,6 +3881,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '이 목록에서 포트 {port} 숨기기',
    'contextPanel.browser.devServers.showHiddenSingle': '숨긴 포트 {count}개 표시',
    'contextPanel.browser.devServers.showHiddenPlural': '숨긴 포트 {count}개 표시',
@@ -772,10 +772,10 @@ index 44b71a974..9f9af2450 100644
    'sessions.sidebar.header.displayMode.showChats': '채팅 섹션 표시',
    'sessions.scheduledTasks.editor.useDefaults.label': '세션 기본값 사용',
 diff --git c/packages/ui/src/lib/i18n/messages/nl.ts w/packages/ui/src/lib/i18n/messages/nl.ts
-index 3bc415326..fcf769799 100644
+index bb3791fb7..b47475625 100644
 --- c/packages/ui/src/lib/i18n/messages/nl.ts
 +++ w/packages/ui/src/lib/i18n/messages/nl.ts
-@@ -3841,6 +3841,39 @@ export const dict = {
+@@ -3881,6 +3881,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': 'Poort {port} in deze lijst verbergen',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} verborgen poort tonen',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} verborgen poorten tonen',
@@ -816,10 +816,10 @@ index 3bc415326..fcf769799 100644
    'sessions.sidebar.header.displayMode.showChats': 'Chatsectie tonen',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Standaardinstellingen voor sessies gebruiken',
 diff --git c/packages/ui/src/lib/i18n/messages/pl.ts w/packages/ui/src/lib/i18n/messages/pl.ts
-index 3ad15cd77..17441491c 100644
+index 5dbd111c1..87a27140e 100644
 --- c/packages/ui/src/lib/i18n/messages/pl.ts
 +++ w/packages/ui/src/lib/i18n/messages/pl.ts
-@@ -3846,6 +3846,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3886,6 +3886,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ukryj port {port} na tej liście',
    'contextPanel.browser.devServers.showHiddenSingle': 'Pokaż ukryte porty: {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'Pokaż ukryte porty: {count}',
@@ -860,10 +860,10 @@ index 3ad15cd77..17441491c 100644
    'sessions.sidebar.header.displayMode.showChats': 'Pokaż sekcję czatów',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Używaj domyślnych ustawień sesji',
 diff --git c/packages/ui/src/lib/i18n/messages/pt-BR.ts w/packages/ui/src/lib/i18n/messages/pt-BR.ts
-index 86b885e4a..4ad60d336 100644
+index ae32b2ba4..6fd06fe06 100644
 --- c/packages/ui/src/lib/i18n/messages/pt-BR.ts
 +++ w/packages/ui/src/lib/i18n/messages/pt-BR.ts
-@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3882,6 +3882,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Ocultar a porta {port} desta lista',
    'contextPanel.browser.devServers.showHiddenSingle': 'Mostrar {count} porta oculta',
    'contextPanel.browser.devServers.showHiddenPlural': 'Mostrar {count} portas ocultas',
@@ -904,10 +904,10 @@ index 86b885e4a..4ad60d336 100644
    'sessions.sidebar.header.displayMode.showChats': 'Mostrar seção de chats',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Usar os padrões de sessão',
 diff --git c/packages/ui/src/lib/i18n/messages/tr.ts w/packages/ui/src/lib/i18n/messages/tr.ts
-index 77abfe26f..768d0ccd9 100644
+index a820dc7d8..8e6129636 100644
 --- c/packages/ui/src/lib/i18n/messages/tr.ts
 +++ w/packages/ui/src/lib/i18n/messages/tr.ts
-@@ -3839,6 +3839,39 @@ export const dict = {
+@@ -3879,6 +3879,39 @@ export const dict = {
    'contextPanel.browser.devServers.hide': '{port} bağlantı noktasını bu listede gizle',
    'contextPanel.browser.devServers.showHiddenSingle': '{count} gizli bağlantı noktasını göster',
    'contextPanel.browser.devServers.showHiddenPlural': '{count} gizli bağlantı noktasını göster',
@@ -948,10 +948,10 @@ index 77abfe26f..768d0ccd9 100644
    'sessions.sidebar.header.displayMode.showChats': 'Sohbetler bölümünü göster',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Oturum varsayılanlarını kullan',
 diff --git c/packages/ui/src/lib/i18n/messages/uk.ts w/packages/ui/src/lib/i18n/messages/uk.ts
-index 99484aaf9..72055b95f 100644
+index f7848ce6d..4be2736c0 100644
 --- c/packages/ui/src/lib/i18n/messages/uk.ts
 +++ w/packages/ui/src/lib/i18n/messages/uk.ts
-@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3882,6 +3882,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': 'Сховати порт {port} з цього списку',
    'contextPanel.browser.devServers.showHiddenSingle': 'Показати приховані порти: {count}',
    'contextPanel.browser.devServers.showHiddenPlural': 'Показати приховані порти: {count}',
@@ -992,10 +992,10 @@ index 99484aaf9..72055b95f 100644
    'sessions.sidebar.header.displayMode.showChats': 'Показувати розділ чатів',
    'sessions.scheduledTasks.editor.useDefaults.label': 'Використовувати типові налаштування сесії',
 diff --git c/packages/ui/src/lib/i18n/messages/zh-CN.ts w/packages/ui/src/lib/i18n/messages/zh-CN.ts
-index 9018ebefd..4e4d0800f 100644
+index 8f088ee16..92a760e00 100644
 --- c/packages/ui/src/lib/i18n/messages/zh-CN.ts
 +++ w/packages/ui/src/lib/i18n/messages/zh-CN.ts
-@@ -3842,6 +3842,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3882,6 +3882,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '从此列表中隐藏端口 {port}',
    'contextPanel.browser.devServers.showHiddenSingle': '显示 {count} 个已隐藏端口',
    'contextPanel.browser.devServers.showHiddenPlural': '显示 {count} 个已隐藏端口',
@@ -1036,10 +1036,10 @@ index 9018ebefd..4e4d0800f 100644
    'sessions.sidebar.header.displayMode.showChats': '显示聊天分区',
    'sessions.scheduledTasks.editor.useDefaults.label': '使用会话默认设置',
 diff --git c/packages/ui/src/lib/i18n/messages/zh-TW.ts w/packages/ui/src/lib/i18n/messages/zh-TW.ts
-index 6307beca9..1ad81bd09 100644
+index e1486bb23..a4fd40a39 100644
 --- c/packages/ui/src/lib/i18n/messages/zh-TW.ts
 +++ w/packages/ui/src/lib/i18n/messages/zh-TW.ts
-@@ -3841,6 +3841,39 @@ export const dict: Record<I18nKey, string> = {
+@@ -3881,6 +3881,39 @@ export const dict: Record<I18nKey, string> = {
    'contextPanel.browser.devServers.hide': '從此清單隱藏連接埠 {port}',
    'contextPanel.browser.devServers.showHiddenSingle': '顯示 {count} 個已隱藏連接埠',
    'contextPanel.browser.devServers.showHiddenPlural': '顯示 {count} 個已隱藏連接埠',
@@ -1080,7 +1080,7 @@ index 6307beca9..1ad81bd09 100644
    'sessions.sidebar.header.displayMode.showChats': '顯示聊天區段',
    'sessions.scheduledTasks.editor.useDefaults.label': '使用工作階段預設值',
 diff --git c/packages/web/server/lib/dev-servers/routes.js w/packages/web/server/lib/dev-servers/routes.js
-index e71b890cf..8f1dc09bd 100644
+index dd0a1e777..f67434801 100644
 --- c/packages/web/server/lib/dev-servers/routes.js
 +++ w/packages/web/server/lib/dev-servers/routes.js
 @@ -19,6 +19,7 @@ import {
@@ -1091,7 +1091,7 @@ index e71b890cf..8f1dc09bd 100644
  
  const SCAN_TIMEOUT_MS = 2_500;
  /** Enumeration is cheap but not free; a short cache absorbs panel re-renders. */
-@@ -127,13 +128,16 @@ export const createDevServerScanner = ({ spawn, platform, readFile = fsPromises.
+@@ -130,13 +131,16 @@ export const createDevServerScanner = ({ spawn, platform, readFile = fsPromises.
          return result;
        }
  
