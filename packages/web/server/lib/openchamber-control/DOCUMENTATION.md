@@ -64,6 +64,18 @@ other.
   16,000 characters as JSON) or the request is aborted. Nothing outlives the
   call, so a second answer, an answer for a call that ended, and an answer
   after a server restart are a `404`, never a silent success.
+  Before it waits, the action reads the session's OpenCode inbox. A message
+  the user steered into the turn that the agent has not read yet means they
+  wrote before the page appeared (a queued one waits for the turn to end
+  anyway, so it does not count); OpenCode delivers it only after this call returns, so
+  waiting held it back and an answer on the page reached the agent first.
+  The call then returns at once with `{ answered: false, reason:
+  "chat-sent-earlier" }` and a note that the message is not an answer to the
+  page, and the chat says so under the page. A failed inbox read counts as
+  no message, and the page waits. One case stays open: a prompt sent just
+  before the page appeared that OpenCode was still preparing (attachments
+  are read first) and that reaches the inbox only after this read; the page
+  then waits as before.
   `onPageWaitChange` hears both ends of a wait. The server's wiring
   (`index.js`) lists the page with the session's pending requests
   (`trackWaitingPage` in `../opencode/session-runtime.js`), broadcasts
@@ -81,6 +93,25 @@ other.
   against `budgetMB` when the budget cut it) and a note telling the agent to
   split the page or use smaller images. A page whose images all show answers
   as before.
+- `secret-request.js` runs `secret.request` for the `openchamber_secret`
+  agent tool. The call waits in its own `createPageAnswers` instance, so the
+  session shows as waiting for the user exactly like a page (pending list,
+  `openchamber:page-waiting` with the label as title, "Input needed"), while
+  a page's answer route can never reach a secret's wait. The chat answers
+  through `POST /api/openchamber/secret/answer` with the value or
+  `declined: true`. The route writes the value to
+  `<data-dir>/secrets/<random>` (file `0600` created with `wx`, directory
+  `0700`) and only then settles the wait with the path; when the call
+  stopped waiting meanwhile, the file is removed and the answer is a `404`.
+  A write that fails partway removes its file, and so does an answer that
+  settles the wait just as the call is aborted. Like a page, the card does
+  not wait when `hasUnreadChat` finds a message the user sent before it
+  appeared; the call answers `{ answered: false, reason: 'chat-sent-earlier' }`.
+  The value never enters the tool call, its result, OpenCode's store or the
+  agent's context; the agent reads the file inside its own command, so the
+  card says the agent's commands can read it. `createSecretFiles().sweep()`
+  deletes files 24 hours after they were written, on server start and
+  hourly. Answers `403` while `agentSecretToolEnabled` is `false`.
 - `routes.js` is the authenticated CLI HTTP adapter. It forwards one action,
   preserves service status and partial-result details, and propagates request
   cancellation. It also carries the chat's answer to a waiting page.
@@ -92,6 +123,19 @@ other.
 
 ## Invariants
 
+- `projects.list` offers registered projects and the server's Chats destination.
+  `session.create` accepts its `openchamber:chats` id to create a separate managed
+  chat directory. With no explicit scope, creation still uses the caller's directory.
+  Later session actions use the returned directory, or their existing resolution
+  by session id. The Chats id is a creation destination, not a registered project.
+  Chats creation and directory-scoped send/fork do not infer a project or its defaults from Git,
+  including when the configured Chats root is inside a registered checkout.
+  Membership compares the canonical directory and root so symlink aliases keep
+  the same projectless behavior.
+- Chats creation belongs to the session service. It reuses the directory allocator
+  in `../scheduled-tasks/chats-scope.js`, including the configured Chats root.
+  Failed creation removes only an empty directory. Once OpenCode creates the
+  session, a failed prompt keeps its directory. Chats cannot request a worktree.
 - Session status and messages come from official directory-scoped OpenCode
   APIs. Message output includes only ordered `text` parts.
 - Wait (CLI only; the agent tool refuses it) never treats an initial idle
@@ -125,6 +169,11 @@ other.
 - Send and fork dispatches without an explicit model/agent/variant reuse the
   target session's last user-message selection before falling back to the
   configured defaults; only session creation resolves defaults directly.
+- A dispatch that names a model but omits `variant` resolves its level in the
+  same order as the composer: the agent pin and the project or Settings default
+  for that model, then the profile's `lastUsedEfforts` entry, then Default. A
+  send that names no model keeps the session's own selection, and a remembered
+  level the model no longer lists is ignored.
 - `session.create` with `pullRequest` passes the number, and `worktree` and
   `branch` as folder and local-branch names, to the session service, which
   creates the worktree through the injected `createChangeRequestWorktree`
@@ -179,6 +228,26 @@ other.
   worktree root. Send/fork fallback uses that same owner. Configured model IDs
   and effort preferences survive missing catalog entries rather than silently
   dispatching with a different model.
+- A create with a prompt resolves its selection in the target directory before
+  creating an OpenCode session. It reads discovery once with a 10-second request
+  deadline. Unavailable agent/config reads, an empty agent list, or a configured
+  agent absent from the list produce 503; no fallback model is dispatched from
+  those snapshots. A missing saved default agent is named in the error with a
+  hint to update the default or pass an explicit agent; it never silently picks
+  another agent. An explicit agent that needs only a model does not require the
+  saved default agent to exist. Model precedence stays unchanged.
+  Explicit model/agent pairs keep their existing validation,
+  and send/fork reuse the session selection before requesting defaults.
+- Worktree-dependent operations await the tracked bootstrap promises, including
+  setup, with a 60-second deadline, then check the final status once. Git-ready
+  alone is insufficient. Creating in an existing checkout subdirectory checks
+  bootstrap at the checkout root while retaining the session's requested folder.
+  If a create prerequisite fails after making a worktree,
+  the error carries `partialAction: worktree-created` and `directory`, with no
+  session ID. The caller can retry that directory without a `worktree` parameter.
+  The CLI prints the retained directory and a retry command preserving the
+  prompt and selection options without creating another worktree.
+  An empty-session create without a prompt keeps its existing selection behavior.
 - Usage errors name the missing or conflicting input so CLI and agent-tool
   callers can correct an invalid request without an upfront usage manual.
 - Explicit `projectId` or `directory` scope takes precedence over the managed
@@ -193,6 +262,10 @@ other.
   directory and does not erase other session results.
 - Destructive session/worktree deletion and project-path registration are not
   part of the action contract.
+- `session.send` to an archived top-level session restores it, with its
+  archived subsessions, once OpenCode accepts the prompt, as a send from the
+  composer does: the user follows that session and would otherwise find it
+  only in the archive. A failed restore is logged and leaves the send standing.
 - `session.create`, `session.send` and `session.fork` called from a session
   pass that session as `promptedBySessionId` (except a send to the caller
   itself). The session service records it on the prompt's message as
@@ -206,7 +279,10 @@ other.
   dependency; without it the action answers 503). In a linked worktree it sets
   the branch description (`setWorktreeTaskTitle` in `../git`); in the main
   checkout it renames the task's root session, found through the same lineage
-  the sidebar nests by, and records `metadata.openchamber.workTitle`. A name
+  the sidebar nests by, and records `metadata.openchamber.workTitle`. Explicit
+  creation titles from the shared UI and `POST /api/openchamber/sessions`
+  carry `by: 'user'` in that same creation request. The agent's `session.create`
+  does not claim user ownership, so the agent can still rename its own tasks. A name
   the user gave stays: the call changes nothing and answers `named: false`
   with the current name. When to call it is in the session context, next to
   the linking guidance (`WORK_NAME_GUIDANCE`). While the worktree's branch is
@@ -275,6 +351,13 @@ other.
 
 ## Decisions
 
+### Why selection is checked before creating a session
+
+The target directory's agent snapshot determines its model bindings. Missing
+discovery cannot establish the default choice. Checking it once before creation
+lets the caller retry a known directory without polling, sending a prompt with
+an unintended model, or accumulating empty sessions.
+
 ### Why a dispatched session links back from its prompt and does not nest in the sidebar
 
 A dispatched session used to nest under the caller's work in the sidebar
@@ -284,3 +367,9 @@ separate discussion: nesting hid them under one chevron, reshuffled them when
 the caller was archived, and made `work.name` in each of them rename the
 caller. They stay roots now, and the link sits on the prompt that started
 them, where it says who sent which message.
+
+### Why Chats uses an explicit destination id
+
+The existing `openchamber:chats` id lets agents choose from `projects.list`
+without changing the current-directory default or treating a reserved word as
+a filesystem path. Chats remains outside the registered project list on disk.

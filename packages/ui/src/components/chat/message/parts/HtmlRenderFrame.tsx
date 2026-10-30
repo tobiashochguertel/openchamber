@@ -1,11 +1,8 @@
 import React from 'react';
 
-import { Icon } from '@/components/icon/Icon';
-import type { IconName } from '@/components/icon/icons';
 import { toast } from '@/components/ui';
-import { Button } from '@/components/ui/button';
+import { ToolbarTooltipButton } from '@/components/ui/action-toolbar';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { useFrameAnnotation } from '@/components/browser/useFrameAnnotation';
 import { useWaitingBlink } from '@/hooks/useDurationTicker';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
@@ -20,7 +17,7 @@ import { answerRenderedPage } from '@/lib/renderPageAnswer';
 import { openExternalUrl } from '@/lib/url';
 import type { ChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { dispatchFrameScroll } from '@/components/chat/lib/scroll/timelineScrollIntent';
+import { dispatchFrameScroll, dispatchPageWaiting } from '@/components/chat/lib/scroll/timelineScrollIntent';
 import { useChatSurfaceMode } from '@/components/chat/useChatSurfaceMode';
 import { dispatchFrameSelection, frameRectInApp } from '../frameSelection';
 import {
@@ -43,41 +40,15 @@ import {
     htmlRenderPointerMessage,
     htmlRenderRevealMessage,
     htmlRenderSubmitReply,
-    htmlRenderTheme,
     htmlRenderThemeMessage,
     readHtmlRenderFrameMessage,
     type HtmlRenderAnswerState,
     type HtmlRenderKeyChord,
     type HtmlRenderSubmission,
-    type HtmlRenderTheme,
 } from './htmlRender';
 import { useRenderPageHtml } from './renderPageImages';
 import { saveFile } from './saveFile';
-
-const DEFAULT_SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
-const DEFAULT_MONO = 'ui-monospace, "SFMono-Regular", Menlo, monospace';
-
-/** The app theme as the page's variables, following theme and interface size switches live. */
-function useHtmlRenderTheme(): HtmlRenderTheme {
-    const { currentTheme } = useThemeSystem();
-    // The interface size setting scales the root font, and the app's
-    // controls with it; read again whenever it changes.
-    const interfaceSize = useUIStore((state) => state.fontSize);
-    return React.useMemo(() => {
-        // The user's font settings land on the root as these variables.
-        const style = getComputedStyle(document.documentElement);
-        const rem = Number.parseFloat(style.fontSize) || 16;
-        // The chat's body text size, which the styles set in rem (0.875, and
-        // 1 on phones).
-        const text = (Number.parseFloat(style.getPropertyValue('--text-markdown')) || 0.875) * rem;
-        return htmlRenderTheme(currentTheme, {
-            rem,
-            text,
-            sans: style.getPropertyValue('--font-sans').trim() || DEFAULT_SANS,
-            mono: style.getPropertyValue('--font-mono').trim() || DEFAULT_MONO,
-        });
-    }, [currentTheme, interfaceSize]);
-}
+import { useHtmlRenderTheme } from './useHtmlRenderTheme';
 
 // A timeline row unmounts when it scrolls away and mounts again when it comes
 // back. The page's last height is kept per call, so it comes back at its size
@@ -389,34 +360,6 @@ interface HtmlRenderFrameProps {
     ask: RenderedPageAsk;
 }
 
-/** A small quiet icon button in the row above a page, like the Files preview toolbar's. */
-export function PageToolButton({ label, icon, pressed, onClick }: {
-    label: string;
-    icon: IconName;
-    /** Set for a toggle: it carries the selection fill while on. */
-    pressed?: boolean;
-    onClick: () => void;
-}) {
-    return (
-        <Button
-            variant="ghost"
-            size="sm"
-            aria-label={label}
-            title={label}
-            aria-pressed={pressed}
-            onClick={onClick}
-            className={cn(
-                'size-6 p-0',
-                pressed
-                    ? 'bg-[var(--interactive-selection)] text-[var(--interactive-selection-foreground)] hover:bg-[var(--interactive-selection)]'
-                    : 'text-muted-foreground hover:text-foreground',
-            )}
-        >
-            <Icon name={icon} className="size-4" />
-        </Button>
-    );
-}
-
 /**
  * A page an agent showed with `openchamber_render`, inline in the reply. The
  * frame takes the height the page reports, so the page scrolls with the chat;
@@ -506,11 +449,20 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
             ? t('chat.htmlRender.waiting')
             : ask.kind === 'answered-in-chat'
                 ? t('chat.htmlRender.answeredInChat')
-                : ask.kind === 'unanswered' ? t('chat.htmlRender.unanswered') : null;
+                : ask.kind === 'chat-sent-earlier'
+                    ? t('chat.htmlRender.chatSentEarlier')
+                    : ask.kind === 'unanswered' ? t('chat.htmlRender.unanswered') : null;
     const waiting = ask.kind === 'waiting' && answeredSummary === undefined;
+    // The chat brings a page that waits for an answer into view, and again
+    // as its height arrives: an off-screen frame reports its size only once
+    // it is scrolled into view.
+    const blockRef = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+        if (waiting) dispatchPageWaiting(blockRef.current);
+    }, [height, waiting]);
 
     return (
-        <div className="group/html-render my-2">
+        <div ref={blockRef} className="group/html-render my-2" data-waiting-page={waiting ? partId : undefined}>
         {isMobile ? null : (
             // A row of its own above the page: over the page the buttons
             // covered its own controls in the top corner. The row keeps its
@@ -521,16 +473,16 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
                 annotation.isAnnotating && 'opacity-100',
             )}>
                 {canAnnotate ? (
-                    <PageToolButton
+                    <ToolbarTooltipButton
                         label={t('contextPanel.browser.annotate.toggle')}
                         icon="markup"
                         pressed={annotation.isAnnotating}
                         onClick={annotation.toggle}
                     />
                 ) : null}
-                <PageToolButton label={t('chat.htmlRender.fullscreen')} icon="fullscreen" onClick={() => setFullscreen(true)} />
+                <ToolbarTooltipButton label={t('chat.htmlRender.fullscreen')} icon="fullscreen" onClick={() => setFullscreen(true)} />
                 {canDownload ? (
-                    <PageToolButton label={t('chat.htmlRender.download')} icon="download" onClick={() => { void handleDownload(); }} />
+                    <ToolbarTooltipButton label={t('chat.htmlRender.download')} icon="download" onClick={() => { void handleDownload(); }} />
                 ) : null}
             </div>
         )}

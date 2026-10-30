@@ -14,6 +14,7 @@ import { useKeybinds } from '@/hooks/useKeybind';
 import { handleSettingsShortcut } from './useSettingsKeyboardShortcuts';
 import { createWorktreeSession } from '@/lib/worktreeSessionCreator';
 import { useConfigStore } from '@/stores/useConfigStore';
+import { cycleThinkingVariant } from '@/lib/cycleThinkingVariant';
 import { canUseElectronDesktopIPC, getMiniChatRuntimeArgs, invokeDesktop, isVSCodeRuntime } from '@/lib/desktop';
 import {
   eventMatchesShortcut,
@@ -49,6 +50,8 @@ import {
 } from '@/lib/addSelectionToChat';
 import { isIMECompositionEvent } from '@/lib/ime';
 import { getNextFavoriteModel } from '@/lib/modelRefs';
+import { dispatchPromptHistorySearch } from '@/components/chat/composer/state/promptHistorySearchRoute';
+import { isLinuxPlatform } from '@/lib/platform';
 import { canUseDigitShortcut, hasActiveBtwComposer, hasOpenDropdown, isEditableEventTarget, shouldStopDropdownImeEscape } from './keyboard-shortcut-dom';
 
 const dropdownTargetSelector = [
@@ -146,6 +149,7 @@ export const useKeyboardShortcuts = () => {
     open_command_palette: () => {
       useUIStore.getState().toggleCommandPalette();
     },
+    search_prompt_history: (event) => dispatchPromptHistorySearch(event),
     open_timeline_dialog: () => {
       useUIStore.getState().setTimelineDialogOpen(true);
     },
@@ -272,14 +276,15 @@ export const useKeyboardShortcuts = () => {
       const backward = combo && !combo.includes('shift') ? normalizeCombo(`shift+${combo}`) : '';
       const direction = backward && eventMatchesShortcut(event, backward) ? -1 : 1;
       const config = useConfigStore.getState();
-      const next = getCycledPrimaryAgentName(config.getVisibleAgents(), config.currentAgentName, direction, state.favoriteAgents);
+      const sessionId = useSessionUIStore.getState().currentSessionId;
+      const shownAgent = (sessionId ? useSelectionStore.getState().getSessionAgentPick(sessionId) : null) ?? config.currentAgentName;
+      const next = getCycledPrimaryAgentName(config.getVisibleAgents(), shownAgent, direction, state.favoriteAgents);
       if (!next) return false;
+      if (sessionId) {
+        useSelectionStore.getState().pickSessionAgent(sessionId, next);
+      }
       config.setAgent(next);
       state.addRecentAgent(next);
-      const sessionId = useSessionUIStore.getState().currentSessionId;
-      if (sessionId) {
-        useSelectionStore.getState().saveSessionAgentSelection(sessionId, next);
-      }
     },
     toggle_terminal: () => {
       if (useUIStore.getState().isMobile) return false;
@@ -307,20 +312,7 @@ export const useKeyboardShortcuts = () => {
         || state.isSessionSwitcherOpen
         || state.isAboutDialogOpen;
       if (state.isSettingsDialogOpen || hasOverlay) return false;
-      const config = useConfigStore.getState();
-      if (config.getCurrentModelVariants().length === 0) return false;
-      const nextVariantOverride = config.cycleCurrentVariant();
-      const sessionId = useSessionUIStore.getState().currentSessionId;
-      const { currentAgentName, currentProviderId, currentModelId } = useConfigStore.getState();
-      if (sessionId && currentAgentName && currentProviderId && currentModelId) {
-        useSelectionStore.getState().saveAgentModelVariantForSession(
-          sessionId,
-          currentAgentName,
-          currentProviderId,
-          currentModelId,
-          nextVariantOverride,
-        );
-      }
+      if (!cycleThinkingVariant(useSessionUIStore.getState().currentSessionId)) return false;
     },
     cycle_favorite_model_forward: () => cycleFavoriteModel(1),
     cycle_favorite_model_backward: () => cycleFavoriteModel(-1),
@@ -601,8 +593,10 @@ export const useKeyboardShortcuts = () => {
       if (!useUIStore.getState().isMobile && !hasOverlayOpen()) inputRedirect.redirectKey(event);
     };
     const handlePaste = (event: ClipboardEvent) => {
-      if (useUIStore.getState().isMobile || hasOverlayOpen() || hasActiveSelectionToolbar()) return;
-      inputRedirect.redirectPaste(event);
+      const allowComposerFallback = !useUIStore.getState().isMobile
+        && !hasOverlayOpen()
+        && !hasActiveSelectionToolbar();
+      inputRedirect.redirectPaste(event, allowComposerFallback);
     };
     let windowFocusFrame: number | null = null;
     const handleWindowFocus = () => {
@@ -618,6 +612,7 @@ export const useKeyboardShortcuts = () => {
       });
     };
     const handleKeyHoldDown = (event: KeyboardEvent) => {
+      inputRedirect.clearPendingMiddleClick();
       heldKeysRef.current.add(event.key.toLowerCase());
       heldKeysRef.current.add(resolveShortcutEventKey(event).toLowerCase());
     };
@@ -640,12 +635,28 @@ export const useKeyboardShortcuts = () => {
     window.addEventListener('keydown', handleAbortEscapeKeyDown);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('pointerdown', inputRedirect.rememberColumn, true);
+    window.addEventListener('pointerup', inputRedirect.releaseMiddleClick, true);
+    window.addEventListener('pointercancel', inputRedirect.releaseMiddleClick, true);
     window.addEventListener('focusin', inputRedirect.rememberColumn, true);
+    // Pair a Linux middle click with its paste before a focused editor can
+    // consume it. Keyboard paste keeps the bubble listener below.
+    const captureMiddleClickPaste = isLinuxPlatform();
+    const handleMiddleClickPaste = (event: ClipboardEvent) => {
+      inputRedirect.captureMiddleClickPaste(event);
+    };
+    if (captureMiddleClickPaste) {
+      window.addEventListener('paste', handleMiddleClickPaste, true);
+    }
     window.addEventListener('paste', handlePaste);
     window.addEventListener('focus', handleWindowFocus);
     return () => {
       window.removeEventListener('pointerdown', inputRedirect.rememberColumn, true);
+      window.removeEventListener('pointerup', inputRedirect.releaseMiddleClick, true);
+      window.removeEventListener('pointercancel', inputRedirect.releaseMiddleClick, true);
       window.removeEventListener('focusin', inputRedirect.rememberColumn, true);
+      if (captureMiddleClickPaste) {
+        window.removeEventListener('paste', handleMiddleClickPaste, true);
+      }
       window.removeEventListener('paste', handlePaste);
       window.removeEventListener('focus', handleWindowFocus);
       if (windowFocusFrame !== null) cancelAnimationFrame(windowFocusFrame);

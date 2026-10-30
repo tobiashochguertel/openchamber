@@ -1,18 +1,13 @@
 ---
 name: opencode-v2
-description: Load for any work that touches OpenCode — its routes, events, message or session shapes, plugins, the pinned CLI/client version, "what's new in OpenCode 2.0.x", or a bug that looks like OpenCode behaving differently than OpenChamber expects. OpenChamber runs on OpenCode 2.x since 2026-09; 1.x code paths are gone.
+description: Load for any work that touches OpenCode, including its routes, events, message or session shapes, plugins, the pinned CLI/client version, "what's new in OpenCode 2.x", or a bug that looks like OpenCode behaving differently than OpenChamber expects.
 ---
 
 # OpenCode 2.x in this repository
 
-OpenChamber moved from the OpenCode 1.x API to 2.x in one cutover (PR #3837,
-2026-09). Everything OpenCode-facing speaks 2.x: routes under `/api/*`, one
-global `/api/event` stream of `session.*` events, sessions as cursor-paged
-lists, messages with their parts inline, plugins hot-reloaded from watched
-config, `@opencode/client` + `@opencode/schema` as the only SDK. A bug report
-that mentions 1.x behaviour (`/session` without `/api`, `message.updated`
-events, `auth.json`, `@opencode-ai/sdk`) describes the old world; answer from
-the 2.x code, not from memory of 1.x.
+A bug report that mentions 1.x behaviour (`/session` without `/api`, `message.updated`
+events, `auth.json`, `@opencode-ai/sdk`) describes the old world. Answer from
+the 2.x code.
 
 ## Where the boundary lives
 
@@ -22,8 +17,7 @@ the 2.x code, not from memory of 1.x.
   `plugins.ts` translates the experimental plugin routes; `session-stats.ts`
   translates the experimental `session.stats` usage route; `websearch.ts`
   translates web search (providers, the `websearch` config choice, keys, the
-  tool's text result and its first-use consent form). These files are the
-  only place that knows 2.x wire shapes. Rendering and stores
+  tool's text result and its first-use consent form). Rendering and stores
   read the domain model; fix a missing field there, never with a shim.
 - `packages/web/server/lib/opencode/proxy.js` forwards `/api/*` as-is (2.x
   serves under `/api` itself) and folds OpenChamber-owned session state into
@@ -70,15 +64,9 @@ code.
 Each exists because 2.x has no route for it. When a tag adds the route,
 the workaround goes and the record comes from OpenCode.
 
-- **Archive entries an older OpenChamber kept**: `archive-store.js` holds
-  archive state written before 2.1, and for sessions of deleted directories
-  before 2.2, until `session-archive.js` pushes it to OpenCode after start.
-  Since 2.2 the archive PATCH builds no location, so it works for a session
-  whose folder is gone. Session metadata is not a workaround since 2.0.15: it
-  lives on the OpenCode record, written by merge-then-PATCH in
-  `session-metadata-store.js`, which also migrates the old
-  `sessions-metadata.json`. Provider credentials are not one either since
-  2.0.20: `opencode/auth.js` reads `GET /api/credential`.
+- **Archive entries an older OpenChamber kept**: `session-archive.js` pushes
+  `archive-store.js` entries to OpenCode after start
+  (`packages/web/server/lib/opencode/DOCUMENTATION.md`, session archive state).
 - **1.x sessions created after the one-shot migration**:
   `v1-migration-topup.js` rewinds the migration cursor before a managed start,
   only when no revisited session has 2.x activity.
@@ -103,7 +91,7 @@ Watched upstream issues, checked on every new tag (status with
   it is fixed, Jev stays off OpenCode's `generate/decisions`; once it is,
   Jev calls can move to that route (`routing/DOCUMENTATION.md`).
 - **#59606**: `PredicateQuestion` has no `criteria`, so the Jev features that
-  ask noul questions with true/false criteria (`session-work/questions.js`,
+  ask yes/no questions with true/false criteria (`session-work/questions.js`,
   `session-goal/audit.js`) cannot move to `generate/decisions` without
   re-measured wording.
 
@@ -145,11 +133,9 @@ gap.
 ## Sources of truth
 
 - Reference checkout `~/projects/opencode`, branch `origin/dev` and its
-  `v2.x.y` tags (`origin/v2` stopped at 2026-10-10 and does not contain
-  v2.2.0; upstream PRs target `dev`) (`git fetch origin --tags` there; never edit it). Maintainer
-  machine only: where the path is absent — CI, a fresh sandbox — report the
-  reference checkout as unavailable and answer what you can from the pins
-  below. Server
+  `v2.x.y` tags (`origin/v2` is abandoned; upstream PRs target `dev`). Maintainer
+  machine only: where the path is absent, report it as unavailable and answer
+  from the pins below. Server
   behaviour: `packages/core/src`, HTTP surface: `packages/server/src/handlers/*`,
   wire types: `packages/schema/src`, `packages/protocol/src/groups`.
 - Minimum supported version: `MINIMUM_OPENCODE_VERSION` in
@@ -158,10 +144,10 @@ gap.
 - Pinned version: `opencodeCli.version` in `packages/electron/package.json`
   (the bundled binary) and `@opencode/client` / `@opencode/schema` in the
   root, ui, web and vscode manifests, plus `@opencode/cli@` in the
-  Dockerfile. They move together. The `opencode.url` tag in `flake.nix` is the
-  exception: it follows `opencodeCli.version` on its own (see the bump steps).
+  Dockerfile. They move together, including `opencode.url` in `flake.nix`
+  (see the bump steps).
 
-## "What's new in OpenCode 2.0.x?"
+## "What's new in OpenCode 2.x?"
 
 Answer from the diff. Done when every API-facing change between the pinned
 tag and the newest tag is classified.
@@ -186,8 +172,11 @@ tests. A new message `type` or event needs a case in `model.ts` and
 `events.ts` before it renders. Verify `@opencode/cli@<tag>` exists on npm:
 the desktop packaging and the Docker image install it.
 
-Leave `flake.nix`, `flake.lock` and `nix/hashes.json` at the old tag. When the
-bump reaches `main`, the `nix-hashes` workflow runs `nix run .#update-hashes`:
-it moves the `flake.nix` tag to `opencodeCli.version`, re-bakes the hashes, and
-opens a PR. The hashes come only from a Linux nix build, so a tag moved by hand
-still leaves the flake broken until that PR lands.
+Set `opencode.url` in `flake.nix` to the same `vX.Y.Z` tag and run
+`nix flake update opencode` from the OpenChamber root. Include `flake.nix` and
+`flake.lock` in the bump. OpenChamber's Bun cache derives from `bun.lock` through
+bun2nix; OpenCode's dependency hashes come from the pinned upstream source.
+There is no hash-baking workflow to repair a mismatched pin after merge.
+Run `nix build --no-link .#openchamber .#openchamber-desktop`; `nix-eval` CI
+also evaluates and builds both on x86_64-linux, aarch64-linux and aarch64-darwin.
+If Nix is unavailable locally, report that and require those CI jobs to pass.

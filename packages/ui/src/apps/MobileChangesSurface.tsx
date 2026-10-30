@@ -97,6 +97,8 @@ import { useGitPublishChooser } from '@/components/views/git/useGitPublishChoose
 import { PublishDialog } from '@/components/views/git/PublishDialog';
 import { settleGitFileReverts } from './mobileChangesOperations';
 import { commitAndSwitchBranch } from './mobileDirtySwitch';
+import { useCommitCelebration } from '@/components/views/git/useCommitCelebration';
+import { useGitCleanLine } from '@/components/views/git/useGitCleanLine';
 import { normalizePath } from '@/lib/pathNormalization';
 
 type SyncAction = 'fetch' | 'pull' | 'sync' | 'publish' | null;
@@ -184,8 +186,8 @@ interface MobileChangesPaneProps extends MobileChangesSurfaceProps {
 export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirectory, repository, onClose, initialDiff, visible = true, onNavigatedToChat }) => {
   const { t } = useI18n();
   const { git, sourceControl } = useRuntimeAPIs();
-  // When the root is not itself a repository, changes come from the resolved
-  // nested repository instead.
+  // Changes come from the picked repository, or the root when nothing is
+  // picked.
   const { rootIsGitRepo, gitDirectory, nestedRepos, repositoryOptions } = repository;
   const currentDirectory = gitDirectory ?? rootDirectory;
   const status = useGitStatus(currentDirectory || null);
@@ -280,6 +282,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
   }, [initialDiff]);
   const [syncAction, setSyncAction] = React.useState<SyncAction>(null);
   const [commitAction, setCommitAction] = React.useState<CommitAction>(null);
+  const commitCelebration = useCommitCelebration();
   const [commitMessage, setCommitMessage] = React.useState('');
   const [revertingPaths, setRevertingPaths] = React.useState<Set<string>>(new Set());
   const [isRevertingAll, setIsRevertingAll] = React.useState(false);
@@ -904,7 +907,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
     }
   }, [currentDirectory, stagedChangeEntries, t]);
 
-  const handleCommit = async (options: { pushAfter?: boolean } = {}) => {
+  const handleCommit = async (options: { pushAfter?: boolean; origin?: HTMLElement } = {}) => {
     if (!currentDirectory) return;
     if (!commitMessage.trim()) {
       toast.error(t('gitView.toast.enterCommitMessage'));
@@ -920,9 +923,9 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
     let recovery: ReturnType<typeof operationRecovery.start> = null;
     let commitOutcome: 'pending' | 'local' | 'published' = 'pending';
     try {
-      await git.createGitCommit(currentDirectory, commitMessage.trim(), { files: filesToCommit });
+      const commit = await git.createGitCommit(currentDirectory, commitMessage.trim(), { files: filesToCommit });
       commitOutcome = 'local';
-      toast.success(t('gitView.toast.commitCreated'));
+      const deletion = commitCelebration.committed(commit.summary, options);
       setCommitMessage('');
       setGeneratedHighlights([]);
 
@@ -937,7 +940,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
         setSyncAction('publish');
         await executePush();
         commitOutcome = 'published';
-        toast.success(t('gitView.publish.succeeded'));
+        commitCelebration.pushed({ deletion, origin: options.origin });
       }
       await refreshAfterGitAction();
     } catch (error) {
@@ -1261,7 +1264,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
       {networkDialogs}
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-edge px-3 py-2">
         {onClose ? (
           <button
             type="button"
@@ -1438,7 +1441,8 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
               onVisiblePathsChange={setVisibleChangePaths}
             />
           </div>
-          <div className="shrink-0 border-t border-border/70 px-4 pb-4 pt-3">
+          {/* Held at the bottom of the panel: it rides the keyboard over the list. */}
+          <div data-keyboard-rider="" className="shrink-0 border-t border-edge bg-background px-4 pb-4 pt-3">
             <CommitSection
               stagedCount={stagedChangeEntries.length}
               commitMessage={commitMessage}
@@ -1447,8 +1451,8 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
               onInsertHighlights={handleInsertHighlights}
               onGenerateMessage={handleGenerateCommitMessage}
               isGeneratingMessage={isGeneratingMessage}
-              onCommit={() => void handleCommit({ pushAfter: false })}
-              onCommitAndPush={() => void handleCommit({ pushAfter: true })}
+              onCommit={(origin) => void handleCommit({ pushAfter: false, origin })}
+              onCommitAndPush={(origin) => void handleCommit({ pushAfter: true, origin })}
               commitAction={commitAction}
               networkOperationBlocked={operationRecovery.blocked}
               gitmojiEnabled={false}
@@ -1458,7 +1462,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
         </div>
       ) : (
         <div className="min-h-0 flex-1">
-          <MobileChangesState icon message={t('gitView.empty.cleanTitle')} description={t('mobile.changes.cleanDescription')} />
+          <MobileCleanState />
         </div>
       )}
       {currentDirectory && (
@@ -1528,6 +1532,14 @@ const MobileChangesState: React.FC<{
   </div>
 );
 
+// Its own component so each time the tree turns clean, or the surface opens on
+// a clean tree, it picks a new line.
+const MobileCleanState: React.FC = () => {
+  const { t } = useI18n();
+  const description = useGitCleanLine(t('mobile.changes.cleanDescription'));
+  return <MobileChangesState icon message={t('gitView.empty.cleanTitle')} description={description} />;
+};
+
 const MobileDiffDetail: React.FC<{
   path: string;
   subtitle?: string;
@@ -1553,7 +1565,7 @@ const MobileDiffDetail: React.FC<{
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-[var(--oc-header-height,56px)] shrink-0 items-center gap-3 border-b border-border/70 px-3 text-foreground">
+      <header className="flex h-[var(--oc-header-height,56px)] shrink-0 items-center gap-3 border-b border-edge px-3 text-foreground">
         <button
           type="button"
           className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-interactive-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -8,11 +8,11 @@
  * visible in a shared schema.
  */
 export const OPENCHAMBER_CONTROL_ACTION_DEFINITIONS = Object.freeze([
-  { action: 'projects.list', title: 'List configured projects', description: 'No parameters' },
+  { action: 'projects.list', title: 'List session destinations', description: 'Projects and Chats; use an id as projectId for session.create. No parameters' },
   { action: 'models.list', title: 'Show model preferences', description: 'Default, favorite and recent models; no parameters' },
   { action: 'models.search', title: 'Search models', description: 'The model catalog, favorites and recent models first; optional query, provider, all, limit, offset' },
   { action: 'session.list', title: 'List sessions', description: 'Optional limit, all, withStatus' },
-  { action: 'session.create', title: 'Create a session', description: 'In this directory by default; prompt optional' },
+  { action: 'session.create', title: 'Create a session', description: 'In this directory by default; projectId from projects.list selects a project or openchamber:chats for a new Chat. Use the returned directory for later session actions. Prompt optional' },
   { action: 'session.send', title: 'Send a prompt', description: 'New prompt to sessionId' },
   { action: 'session.fork', title: 'Fork a session', description: 'Fork sessionId at messageId; prompt optional' },
   { action: 'session.status', title: 'Check session status', description: 'Status of sessionId' },
@@ -161,6 +161,19 @@ export const OPENCHAMBER_IMAGE_ACTIONS = Object.freeze(
 );
 
 /**
+ * Asking for a secret is its own tool: it is the one action that takes a
+ * credential from the user, so it can be switched off alone. The value goes
+ * to a private file and only its path reaches the agent.
+ */
+export const OPENCHAMBER_SECRET_ACTION_DEFINITIONS = Object.freeze([
+  { action: 'secret.request', title: 'Ask for a secret', description: 'Requires label and reason' },
+]);
+
+export const OPENCHAMBER_SECRET_ACTIONS = Object.freeze(
+  OPENCHAMBER_SECRET_ACTION_DEFINITIONS.map(({ action }) => action),
+);
+
+/**
  * Workflows are their own tool: fanning a large task out to many agents is a
  * distinct intent with its own scripting guidance, and it ships dark behind
  * OPENCHAMBER_WORKFLOWS_ENABLE, so it has to disappear completely.
@@ -216,6 +229,7 @@ const ACTIONS_BY_TOOL = Object.freeze({
   openchamber_notify: OPENCHAMBER_NOTIFY_ACTIONS,
   openchamber_render: OPENCHAMBER_RENDER_ACTIONS,
   openchamber_image: OPENCHAMBER_IMAGE_ACTIONS,
+  openchamber_secret: OPENCHAMBER_SECRET_ACTIONS,
   openchamber_workflow: OPENCHAMBER_WORKFLOW_ACTIONS,
   [WORKFLOW_ANSWER_TOOL]: OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS,
 });
@@ -268,6 +282,7 @@ export const OPENCHAMBER_ALL_ACTIONS = Object.freeze([
   ...OPENCHAMBER_NOTIFY_ACTIONS,
   ...OPENCHAMBER_RENDER_ACTIONS,
   ...OPENCHAMBER_IMAGE_ACTIONS,
+  ...OPENCHAMBER_SECRET_ACTIONS,
   ...OPENCHAMBER_WORKFLOW_ACTIONS,
   ...OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS,
 ]);

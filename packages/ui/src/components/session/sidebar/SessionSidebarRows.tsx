@@ -3,20 +3,25 @@ import { defaultRangeExtractor, measureElement, useVirtualizer, type VirtualItem
 import type { SessionSidebarRow, SessionSidebarRowModel } from './sessionSidebarRowModel';
 import { SessionTreeGuides } from './sessions/SessionTreeGuides';
 import { SESSION_TREE_BASE_PADDING_PX } from './sessions/sessionTreeGeometry';
+import { findSessionSidebarDisclosure } from './sessionSidebarDisclosure';
 import {
   boundaryClipKeyframes,
   boundaryFadeInKeyframes,
-  findSessionSidebarDisclosure,
-  SIDEBAR_DISCLOSURE_EASING,
-  SIDEBAR_DISCLOSURE_MS,
-} from './sessionSidebarDisclosure';
+  ROW_DISCLOSURE_EASING,
+  ROW_DISCLOSURE_FADE_OUT,
+  ROW_DISCLOSURE_MS,
+} from '@/lib/motion/rowDisclosure';
 import {
   estimateSessionSidebarRowSize,
   findFirstVisibleSessionSidebarRowIndex,
+  findSessionSidebarScrollAnchor,
   getInitialSessionSidebarRowIndexes,
+  isSessionSidebarUserChange,
   mergeSessionSidebarVirtualIndexes,
+  resolveSessionSidebarScrollAnchor,
   sectionSpacingAfter,
   sectionWrapperClass,
+  sessionSidebarProjectOrderChanged,
   sessionSidebarRowSizeKey,
   sessionSidebarRowVirtualKey,
 } from './sessionSidebarVirtualization';
@@ -43,10 +48,6 @@ type DisclosureMotion = {
   slidingIndexes: readonly number[];
 };
 
-// Closing rows are gone well before the boundary reaches them; opening rows
-// come up as the boundary uncovers them (`boundaryFadeInKeyframes`).
-const DISCLOSURE_FADE_OUT: Keyframe[] = [{ opacity: 1 }, { opacity: 0, offset: 0.6 }, { opacity: 0 }];
-
 const prefersReducedMotion = (): boolean =>
   globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
@@ -60,6 +61,14 @@ type Props = {
   guideSlotStartPx?: number;
   /** Brings a row to the middle of the list; a new `id` asks again for the same row. */
   scrollRequest?: { index: number; id: number } | null;
+  /** How much of the scroller's top a pinned header covers: the row the user sees first sits under it. */
+  getStickyHeaderHeight?: (scrollElement: HTMLElement) => number;
+  /**
+   * True once after the user dragged projects into another order, which then
+   * keeps the scroll position; projects sorted by recent activity move on
+   * their own, and the list keeps the row the user sees.
+   */
+  takeProjectReorder?: () => boolean;
 };
 
 export function SessionSidebarRows({
@@ -70,6 +79,8 @@ export function SessionSidebarRows({
   onFirstVisibleIndexChange,
   guideSlotStartPx = SESSION_TREE_BASE_PADDING_PX,
   scrollRequest = null,
+  getStickyHeaderHeight,
+  takeProjectReorder,
 }: Props): React.ReactNode {
   const rows = model.rows;
   const getScrollElement = React.useCallback(() => scrollElement, [scrollElement]);
@@ -130,9 +141,11 @@ export function SessionSidebarRows({
   const maximumScrollOffset = scrollElement
     ? Math.max(totalSize - scrollElement.clientHeight, 0)
     : 0;
-  const scrollOffset = scrollElement
-    ? Math.min(scrollElement.scrollTop, maximumScrollOffset)
-    : 0;
+  // Read before this render's rows reach the DOM: a list that got shorter
+  // clamps the scroller once it lays out, and the anchor below needs the
+  // position the user was looking at.
+  const renderedScrollTop = scrollElement ? scrollElement.scrollTop : 0;
+  const scrollOffset = Math.min(renderedScrollTop, maximumScrollOffset);
   const firstVisibleIndex = findFirstVisibleSessionSidebarRowIndex(virtualItems, scrollOffset);
   React.useLayoutEffect(() => {
     onFirstVisibleIndexChange(firstVisibleIndex);
@@ -145,15 +158,19 @@ export function SessionSidebarRows({
   }, [scrollRequest, scrollElement]);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const lastLayoutRef = React.useRef<{ rows: readonly SessionSidebarRow[]; measurements: readonly VirtualItem[] } | null>(null);
+  const lastLayoutRef = React.useRef<{
+    model: SessionSidebarRowModel;
+    measurements: readonly VirtualItem[];
+    items: readonly VirtualItem[];
+  } | null>(null);
 
   // A header the user opened or closed: plan the motion from where the rows
   // were to where they are now. Runs before paint, and the state it sets
   // renders before paint too, so the first frame drawn is the motion's start.
   React.useLayoutEffect(() => {
     const last = lastLayoutRef.current;
-    if (!last || last.rows === rows || !scrollElement || prefersReducedMotion()) return;
-    const disclosure = findSessionSidebarDisclosure(last.rows, rows);
+    if (!last || last.model.rows === rows || !scrollElement || prefersReducedMotion()) return;
+    const disclosure = findSessionSidebarDisclosure(last.model.rows, rows);
     if (!disclosure) return;
     const before = last.measurements;
     const after = virtualizer.measurementsCache;
@@ -183,23 +200,47 @@ export function SessionSidebarRows({
       for (let index = disclosure.blockStart; index < disclosure.blockEnd; index += 1) {
         const measured = before[index];
         if (!measured || measured.end + shift < top || measured.start + shift > bottom) continue;
-        ghosts.push({ row: last.rows[index], nextRow: last.rows[index + 1], start: measured.start + shift, end: measured.end + shift });
+        ghosts.push({ row: last.model.rows[index], nextRow: last.model.rows[index + 1], start: measured.start + shift, end: measured.end + shift });
       }
     }
     motionIdRef.current += 1;
     setMotion({ id: motionIdRef.current, revealKeys, ghosts, followingIndex, from, to, slidingIndexes });
   }, [rows, scrollElement, virtualizer]);
 
-  // Recorded after the planning effect above reads it, on every commit, so it
-  // always holds the layout the user last saw.
+  // Rows that changed above what the user sees, with nothing the user did to
+  // the list (see `isSessionSidebarUserChange`): sessions arriving, leaving or
+  // moving, rows changing height with Detailed rows. The scroll position alone
+  // stays, so the rows on screen slid away, or past the end of a list that got
+  // shorter. Put the row at the top of what the user sees, under a pinned
+  // header, back where it was.
   React.useLayoutEffect(() => {
-    lastLayoutRef.current = { rows, measurements: virtualizer.measurementsCache };
+    const last = lastLayoutRef.current;
+    // A hidden list (the phone's while projects are reordered) has no viewport to keep.
+    if (!last || last.model.rows === model.rows || !scrollElement || scrollElement.clientHeight === 0) return;
+    if (isSessionSidebarUserChange(last.model, model)) return;
+    if (sessionSidebarProjectOrderChanged(last.model, model) && takeProjectReorder?.()) return;
+    const inset = getStickyHeaderHeight?.(scrollElement) ?? 0;
+    // The last layout's mounted rows hold the viewport: any scroll far enough
+    // to change them renders again.
+    const line = renderedScrollTop + inset;
+    const anchor = findSessionSidebarScrollAnchor(last.model.rows, last.items, line, renderedScrollTop + scrollElement.clientHeight, model.rowIndexByKey);
+    if (!anchor) return;
+    // Brings the measurements up to date with the rows mounted in this commit.
+    virtualizer.getTotalSize();
+    const nextLine = resolveSessionSidebarScrollAnchor(anchor, model.rowIndexByKey, virtualizer.measurementsCache);
+    if (nextLine !== null && Math.abs(nextLine - inset - scrollElement.scrollTop) > 0.5) virtualizer.scrollToOffset(Math.max(nextLine - inset, 0));
+  }, [model, scrollElement, virtualizer, renderedScrollTop, getStickyHeaderHeight, takeProjectReorder]);
+
+  // Recorded after the effects above read it, on every commit, so it always
+  // holds the layout the user last saw.
+  React.useLayoutEffect(() => {
+    lastLayoutRef.current = { model, measurements: virtualizer.measurementsCache, items: virtualItems };
   });
 
   React.useLayoutEffect(() => {
     const container = containerRef.current;
     if (!motion || !container) return;
-    const timing: KeyframeAnimationOptions = { duration: SIDEBAR_DISCLOSURE_MS, easing: SIDEBAR_DISCLOSURE_EASING };
+    const timing: KeyframeAnimationOptions = { duration: ROW_DISCLOSURE_MS, easing: ROW_DISCLOSURE_EASING };
     const distance = motion.from - motion.to;
     const animations: Animation[] = [];
     for (const element of container.children) {
@@ -210,9 +251,7 @@ export function SessionSidebarRows({
         // Held shut after the end: the ghost unmounts a render later, and
         // unclipped for that frame it would flash over the rows below.
         animations.push(element.animate(boundaryClipKeyframes(start, element.offsetHeight, motion.from, motion.to), { ...timing, fill: 'forwards' }));
-        // It fades as it goes: kept at full strength, the rows sliding up
-        // read as cutting through text that is still there.
-        animations.push(element.animate(DISCLOSURE_FADE_OUT, { ...timing, fill: 'forwards' }));
+        animations.push(element.animate(ROW_DISCLOSURE_FADE_OUT, { ...timing, fill: 'forwards' }));
       } else if (motion.revealKeys.has(key)) {
         animations.push(element.animate(boundaryClipKeyframes(start, element.offsetHeight, motion.from, motion.to), timing));
         animations.push(element.animate(boundaryFadeInKeyframes(start, element.offsetHeight, motion.from, motion.to), timing));

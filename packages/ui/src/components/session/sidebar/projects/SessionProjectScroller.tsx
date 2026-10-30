@@ -28,11 +28,12 @@ import { RunSidebarRow } from '../sessions/RunSidebarRow';
 import { computeNodeStructureKey, nodeContainsSessionId } from '../sessions/sessionNodeItemUtils';
 import { DroppableFolderWrapper, SessionFolderOwnersProvider } from '../folders/sessionFolderDnd';
 import { sessionFolderCollision } from '../folders/sessionFolderCollision';
+import { applySessionFolderDrop, resolveCurrentSessionFolderDropSource, resolveCurrentSessionFolderDropTarget } from '../folders/sessionFolderDrop';
 import { FolderDeleteConfirmDialog, type DeleteFolderConfirmState } from '../shell/ConfirmDialogs';
 import type { SessionGroup } from '../types';
 import { SessionSidebarRows } from '../SessionSidebarRows';
 import { sessionTreeTextInset } from '../sessions/sessionTreeGeometry';
-import { SessionSidebarActivityHeader } from '../sessionSidebarHeaderPresentation';
+import { SessionSidebarActivityHeader, SessionSidebarCaption } from '../sessionSidebarHeaderPresentation';
 import { resolveSessionSidebarStickyHeader, type SessionSidebarRow, type SessionSidebarRowModel } from '../sessionSidebarRowModel';
 import { SortableProjectItem } from './sortableItems';
 import { WorktreeWorkRow } from '../works/WorktreeWorkRow';
@@ -41,8 +42,9 @@ import { isGroupWork } from '../works/sidebarWorks';
 import { SessionGroupSection, type SessionGroupSectionProps } from './SessionGroupSection';
 import type { ProjectSection } from './sessionProjectRender';
 import { CrossfadeZoneHeader, CrossfadeZoneHeaders } from './CrossfadeZoneHeaders';
+import { getPinnedZoneHeaderHeight } from './pinnedZoneHeader';
 import { prepareSessionProjectAction } from './sessionProjectActionContext';
-import { applyShowControl, getProjectLabel, grantGroupAccess, retryGroupStatus, toggleActivityZone } from './sessionProjectListActions';
+import { applyShowControl, getProjectLabel, grantGroupAccess, retryGroupStatus, toggleActivityZone, toggleProjectsCaption } from './sessionProjectListActions';
 import { countArchiveAllOutcome, selectArchiveAllSessionIds, withArchiveAllSubtrees } from './archiveAllSessions';
 import { collectSessionSubtreeIds } from '../sessions/sessionSubtreeActions';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -145,6 +147,14 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
   // Only project headers sort; a worktree is a work among the project's
   // works, ordered by activity like the rest.
   const [isProjectDragging, setProjectDragging] = React.useState(false);
+  // Set as a drag reorders projects, so the list keeps its scroll position for
+  // the user's own reorder rather than holding the row on screen.
+  const projectReorderRef = React.useRef(false);
+  const takeProjectReorder = React.useCallback(() => {
+    const reordered = projectReorderRef.current;
+    projectReorderRef.current = false;
+    return reordered;
+  }, []);
   const scrollContainerRef = React.useRef<HTMLElement | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -409,6 +419,7 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
         <SessionTreeItem
           {...model.groupProps}
           node={row.node} depth={row.depth} ownsWork={row.ownsWork} groupDirectory={row.groupDirectory} projectId={row.projectId}
+          ownerProjectId={row.ownerProjectId}
           folderOwnerKey={row.ownerKey} selectionScopeKey={row.selectionScopeKey}
           archivedBucket={row.archived} renderContext={row.renderContext} detailed={row.detailed} rowKey={row.key} dragKey={row.key}
           secondaryMeta={row.secondaryMeta} renderChildren={false}
@@ -464,6 +475,14 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
       );
     }
     if (row.kind === 'status') return renderStatus(row);
+    if (row.kind === 'caption') {
+      return <SessionSidebarCaption
+        collapsed={row.collapsed}
+        forceExpanded={row.forceExpanded}
+        alwaysShowActions={view.alwaysShowActions}
+        onToggle={() => toggleProjectsCaption({ model })}
+      />;
+    }
     if (row.emptyKind === 'sidebar') return model.emptyState;
     if (row.emptyKind === 'search') return model.searchEmptyState;
     return <div className="py-1 text-start typography-micro text-muted-foreground" style={{ paddingInlineStart: rowTextInset }}>
@@ -500,18 +519,23 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
           setProjectDragging(false);
           if (!event.over) return;
           // SAFETY: session and folder payloads are created by the sidebar's draggable and droppable row components.
-          const activeData = event.active.data.current as { type?: string; sessionId?: string; ownerKey?: string | null; archivedBucket?: boolean } | undefined;
+          const activeData = event.active.data.current as { type?: string; sessionId?: string } | undefined;
           // SAFETY: session and folder payloads are created by the sidebar's draggable and droppable row components.
-          const overData = event.over.data.current as { type?: string; folderId?: string; scopeKey?: string; ownerKey?: string | null } | undefined;
-          if (activeData?.type === 'session' && activeData.sessionId && activeData.ownerKey && activeData.archivedBucket !== true && overData?.type === 'folder' && overData.folderId && overData.scopeKey && overData.ownerKey === activeData.ownerKey) {
-            const dropTarget = model.rowModel.folderDropTargets.find((entry) => entry.folderId === overData.folderId && entry.scopeKey === overData.scopeKey && entry.ownerKey === activeData.ownerKey);
-            const authority = model.rowModel.folderAuthorityByOwner.get(activeData.ownerKey);
-            if (!dropTarget?.enabled || authority?.complete !== true) return;
+          const overData = event.over.data.current as { type?: string; folderId?: string; scopeKey?: string } | undefined;
+          if (activeData?.type === 'session' && activeData.sessionId && overData?.type === 'folder' && overData.folderId && overData.scopeKey) {
+            const source = resolveCurrentSessionFolderDropSource(model.rowModel.rows, String(event.active.id), activeData.sessionId);
+            if (!source) return;
+            const dropTarget = resolveCurrentSessionFolderDropTarget(model.rowModel.folderDropTargets, String(event.over.id), overData.scopeKey, overData.folderId);
+            const authority = model.rowModel.folderAuthorityByOwner.get(source.ownerKey);
             const store = useSessionFoldersStore.getState();
-            for (const scopeKey of authority.scopeKeys) {
-              if (scopeKey !== overData.scopeKey) store.removeSessionFromFolder(scopeKey, activeData.sessionId);
-            }
-            addSessionToFolder(overData.scopeKey, overData.folderId, activeData.sessionId);
+            applySessionFolderDrop({
+              sessionId: source.sessionId,
+              sessionOwnerKey: source.ownerKey,
+              target: dropTarget,
+              authority,
+              removeSessionFromFolder: store.removeSessionFromFolder,
+              addSessionToFolder,
+            });
             return;
           }
           if (view.hasSessionSearchQuery || model.state.editingId !== null || event.active.id === event.over.id) return;
@@ -521,11 +545,12 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
           const projectFrom = projectIds.indexOf(activeId);
           const projectTo = projectIds.indexOf(overId);
           if (projectFrom >= 0 && projectTo >= 0 && view.projectSortOrder === 'manual') {
+            projectReorderRef.current = true;
             actions.reorderProjects(projectFrom, projectTo);
           }
         }}>
           <SortableContext items={structuralIds} strategy={verticalListSortingStrategy}>
-            <SessionSidebarRows model={model.rowModel} scrollElement={scrollElement} pinnedRowIndexes={pinnedRowIndexes} renderRow={renderRow} onFirstVisibleIndexChange={handleFirstVisibleIndexChange} />
+            <SessionSidebarRows model={model.rowModel} scrollElement={scrollElement} pinnedRowIndexes={pinnedRowIndexes} renderRow={renderRow} onFirstVisibleIndexChange={handleFirstVisibleIndexChange} getStickyHeaderHeight={getPinnedZoneHeaderHeight} takeProjectReorder={takeProjectReorder} />
           </SortableContext>
         </DndContext>
         </SessionFolderOwnersProvider>

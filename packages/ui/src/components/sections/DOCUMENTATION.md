@@ -187,9 +187,32 @@ with one `oauth` method, so signing in is the same connect / status /
 complete flow the Providers page runs. `mcp/McpOAuthSignIn.tsx` looks the
 integration up by server name in the server's directory (the registration is
 per Location) and mounts the shared `providers/ProviderOAuthMethods.tsx`
-with that directory. It appears in the status card while the server reports
-`needs_auth`; once the credential is stored, the page connects the server
-again, which is what moves it out of `needs_auth`.
+with that directory. While the server reports `needs_auth`, the status card
+shows its sign-in row; once the credential is stored, the page connects the
+server again, which is what moves it out of `needs_auth` or `failed`.
+
+### Why a failed OAuth server's header says "Sign in again"
+
+When the service rejects the stored token (a refresh answered with 403
+`access_denied`), OpenCode reports the server `failed`, not `needs_auth`, and
+keeps the rejected credential. Connect only sends it again. A fresh sign-in
+starts with no tokens (it reuses only the earlier client registration) and
+its new credential is the one the next connect uses, so signing in is the
+whole recovery; no sign-out call is needed.
+
+So for a `failed` server whose OAuth integration exists
+(`useMcpOAuthIntegration`), the header's primary button is "Sign in again" in
+place of Connect, and the card shows no second sign-in row: each press mounts
+a fresh `McpOAuthSignIn` with `autoStart` and its start button hidden, so only
+the attempt's progress appears. Test connection stays on the status line for
+the other cause of `failed`, a server that was down; it retries with the
+stored credential. A `failed` server without OAuth keeps Connect.
+
+The Integrations catalog keeps its sign-in row and labels its button "Sign in
+again" for `failed`, gated on the entry's `auth: 'oauth'` so a failed
+token-based entry gets no sign-in block. It starts the sign-in by itself after
+an install only for `needs_auth`: a first connect that failed for another
+reason waits for a click.
 
 ### Claude sign-in on Usage
 
@@ -370,6 +393,26 @@ own `dir="ltr"` element so an RTL sentence never reorders them.
 
 The page is hidden in VS Code (`metadata.ts`).
 
+## Plugin duplicate sources
+
+`plugins/PluginsGrid.tsx` keeps every configuration entry and its editing target.
+A discovered package card is hidden when its normalized target is already
+represented by a declaration or another discovery record. Distinct declarations
+and their options remain separate, including declarations of the same target.
+Editable local files always keep their own cards and file edit/delete actions,
+including files declared in config.
+
+### Why paths determine discovery duplicates
+
+Names can match for unrelated plugins, and OpenCode's runtime list can omit
+disabled or not-yet-loaded plugins. Only exact target paths filter discovery;
+runtime status never controls card membership. Web, Electron and mobile use the
+server's path metadata; VS Code's file-only discovery stays visible.
+
+Discovery records keep their original `absolutePath` for runtime matching and
+their canonical `resolvedPath` for duplicate filtering. Resolving symlinks in
+the runtime path would lose statuses reported through the original alias.
+
 ## Entity shapes: OpenCode 2 only
 
 Every OpenCode entity these pages read and write speaks the v2 shape defined in
@@ -449,7 +492,26 @@ Agents page uses) and the symbol or image, and the name is edited in place. Belo
 it a tab strip splits the rest: General (new-chat defaults, the team file, trust,
 plans folder), Actions (a card grid with an editor dialog), Worktrees (setup
 commands and a link to the worktrees page) and Environment (not in VS Code).
-Identity fields autosave through `useProjectIdentityAutoSave`, as before.
+Identity fields autosave through `useProjectIdentityAutoSave` after 450 ms.
+Unmounting flushes the pending valid name. Writes run serially and retain the
+latest committed edit during a write, including after unmount, with the captured
+project and save callback. Pending snapshots are retained per project when the
+mounted panel switches projects. A trailing edit reuses a completed icon operation.
+Queues for the same project drain in order across editor remounts; other projects
+do not wait for them. Queue tails are released after success or failure.
+Empty names are never saved. Failed saves show an error toast.
+
+### Why identity saves finish after unmount
+
+Closing the editor accepts its edits, so canceling the debounce or a queued
+follow-up would lose the last name typed. The mobile session sheet's separate
+editor keeps its explicit Save action. VS Code rejects project metadata writes.
+
+### Why identity queues share a project tail
+
+An upload may finish after its editor closes. A reopened editor waits for that
+editor's writes and trailing edit before saving, so an old snapshot cannot
+overwrite the newer name. A per-mount saving flag cannot order these writes.
 
 The Settings page also carries Close project in its header. It calls the same
 `removeProject` as the sidebar's Close project, after a confirm dialog like the

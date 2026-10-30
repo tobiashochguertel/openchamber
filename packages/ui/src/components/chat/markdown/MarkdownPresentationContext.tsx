@@ -3,10 +3,14 @@ import type { Theme } from '@/types/theme';
 import type { ToolPopupContent } from '../message/types';
 import type { MarkdownCodePlugin } from './streamdownCode';
 
+export type FileReferenceSource = 'path' | 'href';
+
 export interface MermaidControls {
   download?: boolean;
   copy?: boolean;
   showPanZoomControls?: boolean;
+  /** A header of the surface around the diagram (the full-screen viewer) that takes the controls instead of a row above. */
+  toolbarSlot?: HTMLElement | null;
 }
 
 export interface MarkdownPresentation {
@@ -24,7 +28,7 @@ export interface MarkdownPresentation {
   allowMermaidWheelEvents?: boolean;
   onShowPopup?: (content: ToolPopupContent) => void;
   onExportCode?: (source: string, language: string) => void;
-  confirmFile: (source: string) => Promise<string | null>;
+  confirmFile: (source: string, inputKind?: FileReferenceSource) => Promise<string | null>;
   code: MarkdownCodePlugin;
 }
 

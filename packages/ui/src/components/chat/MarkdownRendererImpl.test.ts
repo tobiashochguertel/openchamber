@@ -3,6 +3,7 @@ import { Window } from 'happy-dom';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { getDefaultTheme } from '@/lib/theme/themes';
+import { legacyChatQuoteAnchor, resolveChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 
 const browser = new Window({ url: 'http://localhost/' });
 Object.assign(globalThis, { window: browser, document: browser.document, navigator: browser.navigator,
@@ -16,7 +17,10 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { configurable: tr
 Object.defineProperty(globalThis, 'customElements', { configurable: true, value: browser.customElements });
 const state = { codeBlockLineWrap: false, tableCellWrap: true, copyMessagesAsPlainText: false, mermaidRenderingMode: 'svg', setCodeBlockLineWrap: () => undefined, setTableCellWrap: () => undefined, openContextFile: (_directory: string, _path: string) => undefined, openContextFileAtLine: (_directory: string, _path: string, _line: number, _column: number) => undefined };
 mock.module('@/stores/useUIStore', () => ({ useUIStore: Object.assign((select: (value: typeof state) => never) => select(state), { getState: () => state }) }));
-mock.module('@/lib/router/openSessionFromRoute', () => ({ openSessionLink: async () => undefined }));
+mock.module('@/lib/router/openSessionFromRoute', () => ({
+  openSession: async () => undefined,
+  openSessionLink: async () => undefined,
+}));
 mock.module('@/hooks/useEffectiveDirectory', () => ({ useEffectiveDirectory: () => '/project' }));
 mock.module('@/hooks/useRuntimeAPIs', () => ({ useRuntimeAPIs: () => ({ runtime: { isVSCode: false }, editor: undefined }) }));
 const openedLinks: string[] = [];
@@ -56,6 +60,17 @@ test('renders semantic Markdown through native Streamdown code and table compone
   expect(tableWrapper?.lastElementChild?.querySelector('table')).not.toBeNull();
   expect(Array.from(host.querySelector('pre code')?.children ?? []).map((line) => line.textContent).join('\n')).toBe('first\nsecond');
   expect(host.querySelector('[data-oc-code-source]')?.getAttribute('data-oc-code-source')).toBe('first\nsecond');
+});
+
+test('legacy quotes cross prose and fenced code in the application renderer', async () => {
+  for (const language of ['js', 'JS', '']) {
+    const markdown = `Before\n\n\`\`\`${language}\nconst x=1;\n\`\`\`\n\nAfter`;
+    await render(markdown);
+    const content = host.querySelector('[data-markdown-content]')!;
+    const anchor = legacyChatQuoteAnchor(markdown);
+    expect(anchor.text).toBe(content.textContent?.trim());
+    expect(resolveChatQuoteAnchor(content, anchor)?.toString()).toBe(anchor.text);
+  }
 });
 
 test('invisible-only blocks leave no paragraphs or arrival wrappers in either render mode', async () => {
@@ -146,7 +161,7 @@ test('on the phone a file link also opens the files drawer (#5486)', async () =>
   const open = spyOn(state, 'openContextFile');
   const { DedicatedMobileAppProvider } = await import('@/apps/mobileAppContext');
   let filesOpened = 0;
-  const actions = { openChanges: () => undefined, openFiles: () => { filesOpened += 1; }, openSettings: () => undefined, openSourceBoard: () => undefined };
+  const actions = { openChanges: () => undefined, openFiles: () => { filesOpened += 1; }, openSourceBoard: () => undefined };
   try {
     const content = React.createElement(Renderer.MarkdownContent, { content: '[View README.md](README.md)', directory: '/project', enableFileReferences: true, settled: true });
     await act(() => root.render(React.createElement(I18nProvider, null, React.createElement(DedicatedMobileAppProvider, { actions, children: content }))));
@@ -307,8 +322,9 @@ test('Mermaid preserves the view across themes and restores controls and ASCII c
   const original = svg?.outerHTML;
   expect(original).toContain('var(--surface-foreground)');
   const toolbar = host.querySelector('[data-streamdown="mermaid-toolbar"]');
-  expect(toolbar?.classList.contains('absolute')).toBe(true);
-  expect(Array.from(toolbar?.querySelectorAll('button') ?? [], (button) => button.title))
+  // A row of its own above the diagram, never inside the block it would cover.
+  expect(toolbar?.closest('[data-streamdown="mermaid-block"]')).toBeNull();
+  expect(Array.from(toolbar?.querySelectorAll('button') ?? [], (button) => button.getAttribute('aria-label')))
     .toEqual(['Zoom in', 'Zoom out', 'Reset view', 'Copy', 'Download SVG']);
 
   // An early user action flushes the pending initial fit before the saved view.
@@ -331,7 +347,7 @@ test('Mermaid preserves the view across themes and restores controls and ASCII c
     const copy = host.querySelector<HTMLButtonElement>('[data-streamdown="mermaid-toolbar"] button');
     await act(async () => copy?.click());
     expect(write.mock.calls.at(-1)?.[0]).toBe(ascii?.textContent);
-    expect(copy?.title).toBe('Copied');
+    expect(copy?.getAttribute('aria-label')).toBe('Copied');
     expect(host.querySelector('[data-streamdown="mermaid-block"]')?.getAttribute('data-mermaid-render')).toBe('ascii');
   } finally {
     write.mockRestore();
@@ -388,6 +404,36 @@ test('GitHub alerts render as titled callouts in both HTML modes and leave other
   }
   await render('<blockquote data-oc-alert="warning">Forged</blockquote>', false, true);
   expect(host.querySelector('blockquote')?.hasAttribute('data-oc-alert')).toBe(false);
+});
+
+test('file preview preserves single-tilde strikethrough without an explicit parser option', async () => {
+  await act(() => root.render(React.createElement(I18nProvider, null,
+    React.createElement(Renderer.SimpleMarkdownRenderer, {
+      content: '---\ntitle: Preview\n---\n\n~removed~ and ~~deleted~~',
+      frontmatter: 'properties', allowRawHtml: true, enableFileReferences: false,
+    }))));
+  expect(Array.from(host.querySelectorAll('del')).map(node => node.textContent)).toEqual(['removed', 'deleted']);
+});
+
+test('single tildes stay literal in chat and strike in host-authored Markdown', async () => {
+  const content = 'a ~removed~ b and ~~deleted~~ c';
+  for (const singleTilde of [false, true, false]) {
+    await act(() => root.render(React.createElement(I18nProvider, null,
+      React.createElement(Renderer.SimpleMarkdownRenderer, { content, singleTilde, allowRawHtml: true, enableFileReferences: false }))));
+    expect(Array.from(host.querySelectorAll('del')).map(node => node.textContent)).toEqual(
+      singleTilde ? ['removed', 'deleted'] : ['deleted'],
+    );
+  }
+});
+
+test('chat exports preserve literal single tildes and double-tilde strikethrough', async () => {
+  const { renderMarkdownForExport } = await import('./markdown/renderMarkdownForExport');
+  for (const purpose of ['copy', 'image'] as const) {
+    let output!: HTMLElement;
+    await act(async () => { output = await renderMarkdownForExport('~literal~ and ~~deleted~~', { purpose }); });
+    expect(output.textContent).toContain('~literal~');
+    expect(Array.from(output.querySelectorAll('del')).map(node => node.textContent)).toEqual(['deleted']);
+  }
 });
 
 test('item text links its repository references and leaves code, words and paths alone', async () => {
@@ -466,6 +512,18 @@ test('handles empty, shrink and same-length replacement without stale text', asy
   expect(host.textContent).toBe('x');
   await render('');
   expect(host.textContent).toBe('');
+});
+
+test('preserves prose ranges while chat streams and after settlement', async () => {
+  for (const isStreaming of [true, false]) {
+    await act(() => root.render(React.createElement(I18nProvider, null,
+      React.createElement(Renderer.MarkdownRenderer, {
+        content: 'ETA 5~20s and 8~10 minutes. ~literal~ ~~Removed~~', isStreaming,
+        messageId: 'tilde-stream', isAnimated: false, enableFileReferences: false,
+      }))));
+    expect(host.textContent).toContain('ETA 5~20s and 8~10 minutes.');
+    expect(Array.from(host.querySelectorAll('del')).map(node => node.textContent)).toEqual(['Removed']);
+  }
 });
 
 test('chooses static history and preserves the live block tree through settlement', async () => {

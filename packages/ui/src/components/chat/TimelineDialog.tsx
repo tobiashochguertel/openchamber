@@ -9,7 +9,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useSessionUIStore } from '@/sync/session-ui-store';
-import { useSessionMessageRecords } from '@/sync/sync-context';
+import { useSessionMessageLoader, useSessionMessageRecords, useSyncDirectory } from '@/sync/sync-context';
 import { useChatSessionSelection } from './chatColumnSession';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Icon } from "@/components/icon/Icon";
@@ -111,6 +111,14 @@ const TimelineDialogBody: React.FC<TimelineDialogBodyProps> = ({
     const { t } = useI18n();
     const descriptorOf = useSourceControlDescriptorOf();
     const messages = useSessionMessageRecords(currentSessionId, currentSessionDirectory);
+    const messageLoader = useSessionMessageLoader();
+    const syncDirectory = useSyncDirectory();
+    const historyDirectory = currentSessionDirectory ?? syncDirectory;
+    // Keep the chat's background trim from removing prompts shown in the dialog.
+    React.useEffect(() => {
+        if (!historyDirectory) return;
+        return messageLoader.retainSessionHistory({ directory: historyDirectory, sessionID: currentSessionId }, 'browsing');
+    }, [currentSessionId, historyDirectory, messageLoader]);
     const revertToMessage = useSessionUIStore((state) => state.revertToMessage);
     const forkFromMessage = useSessionUIStore((state) => state.forkFromMessage);
     const { isMobile, isTablet } = useDeviceInfo();
@@ -370,11 +378,11 @@ const TimelineDialogBody: React.FC<TimelineDialogBodyProps> = ({
                                 <React.Fragment key={message.info.id}>
                                     {showDateGroup && (
                                         <div className="sticky top-0 z-10 flex items-center gap-3 bg-background/95 py-2 backdrop-blur-sm">
-                                            <div className="h-px flex-1 bg-border/60" />
+                                            <div className="h-px flex-1 bg-edge" />
                                             <span className="typography-meta text-muted-foreground">
                                                 {dateGroup}
                                             </span>
-                                            <div className="h-px flex-1 bg-border/60" />
+                                            <div className="h-px flex-1 bg-edge" />
                                         </div>
                                     )}
                                     <div
@@ -452,7 +460,7 @@ const TimelineDialogBody: React.FC<TimelineDialogBodyProps> = ({
                 </div>
 
                 {isMobile ? (
-                    <div className="mt-2 flex shrink-0 items-center justify-center gap-2 border-t border-border/60 pt-2">
+                    <div className="mt-2 flex shrink-0 items-center justify-center gap-2 border-t border-edge pt-2">
                         {turnActions}
                     </div>
                 ) : (

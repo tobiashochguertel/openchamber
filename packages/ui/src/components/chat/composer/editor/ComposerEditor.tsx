@@ -22,8 +22,8 @@
  */
 
 import React from 'react';
-import { history, historyKeymap, standardKeymap } from '@codemirror/commands';
-import { Annotation, Compartment, EditorState, Prec, type Extension } from '@codemirror/state';
+import { history, historyKeymap, insertNewline, standardKeymap } from '@codemirror/commands';
+import { Annotation, Compartment, EditorState, Prec, type ChangeDesc, type Extension } from '@codemirror/state';
 import {
     EditorView,
     drawSelection,
@@ -39,9 +39,10 @@ import { composerBidi } from './bidi';
 import { replaceWithCaret } from './documentEdits';
 import type { ComposerEditorViewStore } from './viewStore';
 import { ComposerEditorView } from './ComposerEditorView';
-import { composerEditorTheme, composerSelectionExtension } from './theme';
+import { composerEditorTheme, composerSelectionExtension, isCodeMirrorIOSNavigator } from './theme';
 import { handleComposerHostMouseDown } from './hostMouseDown';
 import { getComposerHeightLimit, isComposerContentCapped } from './heightLimit';
+import { imeNewlineCleanup } from './imeNewline';
 import { restoreDeferredEnterModifiers } from '../keyboardPolicy';
 import { timerCaretBlink } from '@/lib/codemirror/caretBlink';
 
@@ -53,6 +54,8 @@ export interface ComposerSelection {
 export interface ComposerChange {
     value: string;
     selection: ComposerSelection;
+    /** Authoritative old-to-new ranges for composer-local occurrence state. */
+    changes: ChangeDesc;
     /** True when the edit came from a paste rather than typing. */
     fromPaste: boolean;
     /** The text this edit inserted, empty for deletions. */
@@ -190,8 +193,15 @@ const enterKeyHintCompartment = new Compartment();
  * that only re-evaluates on the next editor update would lag one keystroke
  * behind the setting.
  */
-const enterKeyHintExtension = (send: boolean): Extension =>
-    send ? EditorView.contentAttributes.of({ enterkeyhint: 'send' }) : [];
+const enterKeyHintExtension = (send: boolean): Extension => {
+    if (!send) return [];
+    const nav = globalThis.navigator;
+    return [
+        EditorView.contentAttributes.of({ enterkeyhint: 'send' }),
+        nav && isCodeMirrorIOSNavigator(nav.userAgent, nav.vendor, nav.maxTouchPoints)
+            ? imeNewlineCleanup() : [],
+    ];
+};
 
 /**
  * CSS placeholder, not CodeMirror's `placeholder()` widget: a widget at
@@ -243,10 +253,10 @@ export const ComposerEditor = React.memo(React.forwardRef<ComposerEditorHandle, 
 
         // CodeMirror defers Enter on iOS and Chrome Android, then re-dispatches
         // a synthetic keydown. Keep modifiers only for that short handoff.
-        const lastRealEnterModsRef = React.useRef({ shiftKey: false, ctrlKey: false, metaKey: false });
+        const lastRealEnterModsRef = React.useRef({ shiftKey: false, ctrlKey: false, metaKey: false, altKey: false });
         const deferredEnterModsTimeoutRef = React.useRef<number | null>(null);
         const clearDeferredEnterModifiers = () => {
-            lastRealEnterModsRef.current = { shiftKey: false, ctrlKey: false, metaKey: false };
+            lastRealEnterModsRef.current = { shiftKey: false, ctrlKey: false, metaKey: false, altKey: false };
             if (deferredEnterModsTimeoutRef.current !== null) {
                 window.clearTimeout(deferredEnterModsTimeoutRef.current);
                 deferredEnterModsTimeoutRef.current = null;
@@ -325,6 +335,7 @@ export const ComposerEditor = React.memo(React.forwardRef<ComposerEditorHandle, 
                         // walks history, Escape closes a picker).
                         Prec.highest(keymap.of(interceptKeys)),
                         keymap.of([
+                            { key: 'Alt-Enter', run: insertNewline },
                             // At a document boundary these commands return false.
                             // Chromium's native page movement can then scroll
                             // hidden-overflow ancestors of the empty placeholder.
@@ -362,6 +373,7 @@ export const ComposerEditor = React.memo(React.forwardRef<ComposerEditorHandle, 
                                 handlers.onChange({
                                     value: update.state.doc.toString(),
                                     selection,
+                                    changes: update.changes,
                                     fromPaste,
                                     insertedText,
                                     fromValueProp: update.transactions.every(
@@ -410,6 +422,7 @@ export const ComposerEditor = React.memo(React.forwardRef<ComposerEditorHandle, 
                     shiftKey: event.shiftKey,
                     ctrlKey: event.ctrlKey,
                     metaKey: event.metaKey,
+                    altKey: event.altKey,
                 };
                 deferredEnterModsTimeoutRef.current = window.setTimeout(clearDeferredEnterModifiers, 500);
             };

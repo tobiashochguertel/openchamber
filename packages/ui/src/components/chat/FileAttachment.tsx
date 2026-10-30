@@ -15,6 +15,7 @@ import { ProviderIcon } from '@/components/sourceControl/ProviderIcon';
 import { useSourceControlProvider } from '@/lib/source-control/providers/registry';
 import { useOpenAttachment } from './message/useOpenAttachment';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { StatusImage } from '@/components/ui/status-image';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { Icon } from "@/components/icon/Icon";
@@ -224,14 +225,16 @@ const ImagePreview = memo(({ file, onRemove, onShowPopup, gallery, index = 0 }: 
           handleOpenPreview();
         }
       }}
-      className="relative h-16 w-16 rounded-lg border border-border/80 bg-background overflow-hidden flex-shrink-0 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="relative h-16 w-16 rounded-lg border border-edge bg-background overflow-hidden flex-shrink-0 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={displayName}
     >
-      <img
+      <StatusImage
         src={imageUrl}
         alt={displayName}
-        className="h-full w-full object-cover"
-        loading="lazy"
+        variant="thumbnail"
+        className="h-full w-full"
+        imgClassName="h-full w-full object-cover"
+        lazy
       />
       <button
         onClick={(event) => {
@@ -291,7 +294,7 @@ const FileChip = memo(({ file, onRemove }: FileChipProps) => {
           return;
         }
       }}
-      className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border/80 bg-background ps-2 pe-1 text-xs text-foreground text-start hover:opacity-90 transition-opacity"
+      className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-edge bg-background ps-2 pe-1 text-xs text-foreground text-start hover:opacity-90 transition-opacity"
       title={displayName}
     >
       <FileTypeIcon filePath={file.filename} extension={extension} className="h-4 w-4 flex-shrink-0" />
@@ -658,7 +661,7 @@ export const MessageFilesDisplay = memo(({ files, onShowPopup, compact = false, 
                       <button
                         type="button"
                         onClick={() => openAttachment(openTarget)}
-                        className="inline-flex items-center bg-muted/30 border border-border/30 typography-meta gap-1 px-2 py-0.5 rounded-lg text-foreground hover:text-primary transition-colors"
+                        className="inline-flex items-center bg-muted/30 border border-edge-muted typography-meta gap-1 px-2 py-0.5 rounded-lg text-foreground hover:text-primary transition-colors"
                       >
                         <IssueLinkIcon file={file} kind={issueLinkKind} className="text-muted-foreground h-3.5 w-3.5" />
                         <div className="overflow-hidden max-w-[220px]">
@@ -669,7 +672,7 @@ export const MessageFilesDisplay = memo(({ files, onShowPopup, compact = false, 
                       <button
                         type="button"
                         onClick={() => openAttachment(openTarget)}
-                        className="inline-flex items-center bg-muted/30 border border-border/30 typography-meta gap-1 px-2 py-0.5 rounded-lg text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-ring"
+                        className="inline-flex items-center bg-muted/30 border border-edge-muted typography-meta gap-1 px-2 py-0.5 rounded-lg text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-ring"
                       >
                         <FileTypeIcon filePath={fileName} extension={ext} className="text-muted-foreground h-3.5 w-3.5" />
                         <div className="overflow-hidden max-w-[140px]">
@@ -677,7 +680,7 @@ export const MessageFilesDisplay = memo(({ files, onShowPopup, compact = false, 
                         </div>
                       </button>
                     ) : (
-                      <div className="inline-flex items-center bg-muted/30 border border-border/30 typography-meta gap-1 px-2 py-0.5 rounded-lg">
+                      <div className="inline-flex items-center bg-muted/30 border border-edge-muted typography-meta gap-1 px-2 py-0.5 rounded-lg">
                         {file.mime?.includes('pdf') ? (
                           <Icon name="file-pdf" className="text-muted-foreground h-3.5 w-3.5" />
                         ) : (
@@ -713,19 +716,17 @@ export const MessageFilesDisplay = memo(({ files, onShowPopup, compact = false, 
                         onClick={() => {
                           if (openTarget) openAttachment(openTarget);
                         }}
-                        className="relative flex-none border border-border/40 bg-muted/10 overflow-hidden snap-start h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-ring"
+                        className="relative flex-none border border-edge-muted bg-muted/10 overflow-hidden snap-start h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-ring"
                         aria-label={filename}
                       >
                         {file.url ? (
-                          <img
+                          <StatusImage
                             src={file.url}
                             alt={filename}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.visibility = 'hidden';
-                            }}
+                            variant="thumbnail"
+                            className="h-full w-full"
+                            imgClassName="h-full w-full object-cover"
+                            lazy
                           />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center bg-muted/30 text-muted-foreground">
@@ -763,13 +764,15 @@ export const MessageFilesDisplay = memo(({ files, onShowPopup, compact = false, 
           return (
             <div
               key={file.url || `${fileName}-${index}`}
-              className="relative aspect-video rounded-lg border border-border/40 bg-muted/10 overflow-hidden group"
+              className="relative aspect-video rounded-lg border border-edge-muted bg-muted/10 overflow-hidden group"
             >
-              <img
+              <StatusImage
                 src={file.url}
                 alt={fileName}
-                className="h-full w-full object-cover"
-                loading="lazy"
+                variant="thumbnail"
+                className="h-full w-full"
+                imgClassName="h-full w-full object-cover"
+                lazy
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="absolute bottom-0 inset-s-0 inset-e-0 p-2 text-white opacity-0 group-hover:opacity-100 transition-opacity">
@@ -921,7 +924,7 @@ const ImageGallery = memo(({ urls, caption, onShowPopup }: ImageGalleryProps) =>
                 index,
               },
             })}
-            className="relative aspect-square rounded-lg border border-border/40 bg-muted/10 overflow-hidden group"
+            className="relative aspect-square rounded-lg border border-edge-muted bg-muted/10 overflow-hidden group"
           >
             <img
               src={url}

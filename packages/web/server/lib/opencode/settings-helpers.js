@@ -83,6 +83,7 @@ export const createSettingsHelpers = (dependencies) => {
 
   const PWA_APP_NAME_MAX_LENGTH = 64;
   const STT_SERVER_URL_MAX_LENGTH = 2048;
+  const STT_ENDPOINT_PATH_MAX_LENGTH = 1024;
   const STT_MODEL_MAX_LENGTH = 256;
   const STT_LANGUAGE_MAX_LENGTH = 64;
   const VERSION_STRING_MAX_LENGTH = 128;
@@ -102,6 +103,8 @@ export const createSettingsHelpers = (dependencies) => {
   const HIDDEN_MODELS_MAX = 1024;
   const RECENT_EFFORTS_MAX_KEYS = 128;
   const RECENT_EFFORTS_MAX_VARIANTS_PER_KEY = 5;
+  const LAST_USED_EFFORTS_MAX_KEYS = 512;
+  const lastUsedEffortsSchema = z.record(z.string(), z.string().trim().min(1).nullable().catch(undefined));
 
   const sanitizeShortcutOverrides = (value) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -142,6 +145,26 @@ export const createSettingsHelpers = (dependencies) => {
       result[key] = variants;
       count += 1;
       if (count >= RECENT_EFFORTS_MAX_KEYS) break;
+    }
+    return count > 0 ? result : null;
+  };
+
+  // One explicit Default (`null`) or variant name per model. A missing entry is
+  // "never sent", which is not the same as Default.
+  const sanitizeLastUsedEfforts = (value) => {
+    const parsed = lastUsedEffortsSchema.safeParse(value);
+    if (!parsed.success) return null;
+    const result = {};
+    const seenKeys = new Set();
+    let count = 0;
+    for (const [rawKey, effort] of Object.entries(parsed.data)) {
+      const key = rawKey.trim();
+      if (!key || seenKeys.has(key)) continue;
+      if (effort === undefined) continue;
+      seenKeys.add(key);
+      result[key] = effort;
+      count += 1;
+      if (count >= LAST_USED_EFFORTS_MAX_KEYS) break;
     }
     return count > 0 ? result : null;
   };
@@ -803,6 +826,9 @@ export const createSettingsHelpers = (dependencies) => {
     if (agentImageModel && /^[^/\s]+\/\S+$/.test(agentImageModel)) {
       result.agentImageModel = agentImageModel;
     }
+    if (candidate.agentSecretToolEnabled === true || candidate.agentSecretToolEnabled === false) {
+      result.agentSecretToolEnabled = candidate.agentSecretToolEnabled;
+    }
     if (typeof candidate.agentToolsCodeMode === 'boolean') {
       result.agentToolsCodeMode = candidate.agentToolsCodeMode;
     }
@@ -815,6 +841,10 @@ export const createSettingsHelpers = (dependencies) => {
     // The machine of the Docker over SSH place; the empty string takes that place away.
     const sshHost = sshHostSchema.safeParse(candidate.isolatedSpacesSshHost);
     if (sshHost.success) result.isolatedSpacesSshHost = sshHost.data;
+    const projectImportCompleted = z.boolean().safeParse(candidate.openCodeProjectImportCompleted);
+    if (projectImportCompleted.success) {
+      result.openCodeProjectImportCompleted = projectImportCompleted.data;
+    }
     if (typeof candidate.openCodeUpdateToastDismissedVersion === 'string') {
       const version = candidate.openCodeUpdateToastDismissedVersion.trim();
       result.openCodeUpdateToastDismissedVersion = version.slice(0, VERSION_STRING_MAX_LENGTH);
@@ -954,6 +984,11 @@ export const createSettingsHelpers = (dependencies) => {
     const recentEfforts = sanitizeRecentEfforts(candidate.recentEfforts);
     if (recentEfforts) {
       result.recentEfforts = recentEfforts;
+    }
+
+    const lastUsedEfforts = sanitizeLastUsedEfforts(candidate.lastUsedEfforts);
+    if (lastUsedEfforts) {
+      result.lastUsedEfforts = lastUsedEfforts;
     }
     if (typeof candidate.diffLayoutPreference === 'string') {
       const mode = candidate.diffLayoutPreference.trim();
@@ -1133,6 +1168,8 @@ export const createSettingsHelpers = (dependencies) => {
     if (typeof candidate.dictationEnabled === 'boolean') {
       result.dictationEnabled = candidate.dictationEnabled;
     }
+    const dictationAutoSend = z.boolean().safeParse(candidate.dictationAutoSend);
+    if (dictationAutoSend.success) result.dictationAutoSend = dictationAutoSend.data;
     if (typeof candidate.sttProvider === 'string') {
       const provider = candidate.sttProvider.trim();
       if (provider === 'local' || provider === 'openai-compatible') {
@@ -1155,6 +1192,10 @@ export const createSettingsHelpers = (dependencies) => {
       if (trimmed.length <= STT_MODEL_MAX_LENGTH) {
         result.sttModel = trimmed;
       }
+    }
+    const sttEndpointPath = z.string().trim().safeParse(candidate.sttEndpointPath);
+    if (sttEndpointPath.success && sttEndpointPath.data.length <= STT_ENDPOINT_PATH_MAX_LENGTH) {
+      result.sttEndpointPath = sttEndpointPath.data;
     }
     if (typeof candidate.sttLocalModel === 'string') {
       const trimmed = candidate.sttLocalModel.trim();

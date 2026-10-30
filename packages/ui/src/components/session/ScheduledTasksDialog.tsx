@@ -748,6 +748,14 @@ export function ScheduledTasksView({ layout, onLeave }: {
                       <span>{t('sessions.scheduledTasks.dialog.lastRun.never')}</span>
                     )}
                   </span>
+                  {task.state?.lastRunIsolated ? (
+                    <span className="inline-flex items-center gap-1.5" title={task.state?.lastRunBranch || undefined}>
+                      <Icon name="git-branch" className="h-3.5 w-3.5" />
+                      {task.state?.lastRunBranch
+                        ? t('sessions.scheduledTasks.dialog.lastRun.isolatedBranch', { branch: task.state.lastRunBranch })
+                        : t('sessions.scheduledTasks.dialog.lastRun.isolated')}
+                    </span>
+                  ) : null}
                 </div>
 
                 {task.state?.lastError ? (
@@ -845,7 +853,7 @@ export function ScheduledTasksView({ layout, onLeave }: {
             {tasksList}
           </div>
           <div
-            className="shrink-0 border-t border-border/70 px-4 pt-2"
+            className="shrink-0 border-t border-edge px-4 pt-2"
             style={{ paddingBottom: 'calc(0.5rem + var(--oc-safe-area-bottom, 0px))' }}
           >
             {newTaskButton('w-full')}
@@ -858,7 +866,7 @@ export function ScheduledTasksView({ layout, onLeave }: {
         // so the page itself only carries the close affordance.
         <div className="absolute inset-0 z-10 flex flex-col bg-background">
           <div className="flex min-h-0 flex-1">
-            <div className="flex w-60 flex-shrink-0 flex-col border-e border-border/50">
+            <div className="flex w-60 flex-shrink-0 flex-col border-e border-edge">
               <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
                 {!hasScopes ? (
                   <div className="px-2 py-2 typography-meta text-muted-foreground">

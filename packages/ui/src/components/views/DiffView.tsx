@@ -51,17 +51,20 @@ import { describeChange } from './git/changeStatus';
 import {
     FileTreeChevron,
     FileTreeIndentGuides,
+    FileTreeRowEnd,
     FileTreeStatusLetter,
 } from './files/FileTreeRowParts';
 import {
     fileTreeRowPaddingLeft,
     fileTreeRowStateClassName,
 } from './files/fileTreeRow';
+import { useFileTreeDisclosure } from './files/useFileTreeDisclosure';
 import { useDeviceInfo } from '@/lib/device';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { Icon } from "@/components/icon/Icon";
-import { WhitespaceToggleIcon } from './WhitespaceToggleIcon';
-import { getContextFileOpenFailureMessage, validateContextFileOpen } from '@/lib/contextFileOpenGuard';
+import { ToolbarButton, ToolbarTooltipButton } from '@/components/ui/action-toolbar';
+import { toastContextFileOpenFailure, validateContextFileOpen } from '@/lib/contextFileOpenGuard';
+import { StatusImage } from '@/components/ui/status-image';
 import { toAbsoluteFilePath } from '@/lib/path-utils';
 import { sessionEvents } from '@/lib/sessionEvents';
 import { findDiffScrollAnchor, getRestoredDiffScrollTop, type DiffScrollAnchor } from './diffScrollAnchor';
@@ -145,7 +148,7 @@ const BRANCH_METADATA_MAX_ATTEMPTS = 3;
 const BinaryDiffPlaceholder = React.memo(() => {
     const { t } = useI18n();
     return (
-        <div className="rounded-lg border border-border/60 bg-background px-3 py-2">
+        <div className="rounded-lg border border-edge bg-background px-3 py-2">
             <div className="typography-meta text-muted-foreground">{t('diffView.binary.unavailable')}</div>
         </div>
     );
@@ -356,39 +359,43 @@ const FileTree = React.memo<FileListProps>(({
         });
     }, [selectedFile]);
 
-    const toggleDirectory = React.useCallback((path: string) => {
-        setCollapsedDirectories((previous) => {
+    const listRef = React.useRef<HTMLUListElement>(null);
+    const toggleWithMotion = useFileTreeDisclosure(listRef);
+    const toggleDirectory = React.useCallback((path: string, expanded: boolean) => {
+        toggleWithMotion(path, expanded, () => setCollapsedDirectories((previous) => {
             const next = new Set(previous);
             if (!next.delete(path)) {
                 next.add(path);
             }
             return next;
-        });
-    }, []);
+        }));
+    }, [toggleWithMotion]);
 
     return (
         <ScrollableOverlay outerClassName="flex-1 min-h-0" className="px-1.5 py-1.5">
-            <ul className="flex flex-col">
+            {/* As wide as its widest row; a long name scrolls sideways. */}
+            <ul ref={listRef} className="relative flex w-max min-w-full flex-col">
                 {rows.map((row) => {
                     const paddingLeft = fileTreeRowPaddingLeft(row.depth);
 
                     if (row.kind === 'directory') {
                         return (
-                            <li key={row.key} className="relative">
+                            <li key={row.key} className="relative" data-tree-disclosure-path={row.path}>
                                 <FileTreeIndentGuides depth={row.depth} />
                                 <button
                                     type="button"
-                                    onClick={() => toggleDirectory(row.path)}
+                                    onClick={() => toggleDirectory(row.path, row.expanded)}
                                     aria-expanded={row.expanded}
                                     aria-label={row.expanded
                                         ? t('diffView.fileTree.collapseDirectoryAria', { path: row.path })
                                         : t('diffView.fileTree.expandDirectoryAria', { path: row.path })}
-                                    className="flex w-full items-center gap-1 rounded-md py-1 pe-2 text-start text-muted-foreground transition-colors hover:bg-interactive-hover hover:text-foreground"
+                                    className="oc-file-tree-row flex w-full items-center gap-1 rounded-md py-1 text-start text-muted-foreground hover:bg-interactive-hover hover:text-foreground hover:[--oc-file-tree-row-fill:var(--interactive-hover)]"
                                     style={{ paddingInlineStart: paddingLeft }}
                                     title={row.path}
                                 >
                                     <FileTreeChevron expanded={row.expanded} />
-                                    <span className="min-w-0 flex-1 truncate typography-meta">{row.label}</span>
+                                    <span className="oc-file-tree-row-name typography-meta">{row.label}</span>
+                                    <FileTreeRowEnd className="pe-2" />
                                 </button>
                             </li>
                         );
@@ -397,26 +404,28 @@ const FileTree = React.memo<FileListProps>(({
                     const descriptor = describeChange(row.file);
                     const isActive = selectedFile === row.file.path;
                     return (
-                        <li key={row.key} className="relative">
+                        <li key={row.key} className="relative" data-tree-disclosure-path={row.file.path}>
                             <FileTreeIndentGuides depth={row.depth} />
                             <button
                                 type="button"
                                 onClick={() => onSelectFile(row.file.path)}
                                 aria-current={isActive ? 'true' : undefined}
                                 className={cn(
-                                    'flex w-full items-center gap-1.5 rounded-md py-1 pe-2 text-start transition-colors',
+                                    'oc-file-tree-row flex w-full items-center gap-1.5 rounded-md py-1 text-start',
                                     fileTreeRowStateClassName(isActive)
                                 )}
                                 style={{ paddingInlineStart: paddingLeft }}
                                 title={row.file.path}
                             >
                                 <FileTypeIcon filePath={row.file.path} className="ms-0.5 size-3.5 flex-shrink-0" />
-                                <span className="min-w-0 flex-1 truncate typography-meta">{row.name}</span>
-                                <FileTreeStatusLetter
-                                    code={descriptor.code}
-                                    color={descriptor.color}
-                                    label={t(descriptor.descriptionKey)}
-                                />
+                                <span className="oc-file-tree-row-name typography-meta">{row.name}</span>
+                                <FileTreeRowEnd className="pe-2">
+                                    <FileTreeStatusLetter
+                                        code={descriptor.code}
+                                        color={descriptor.color}
+                                        label={t(descriptor.descriptionKey)}
+                                    />
+                                </FileTreeRowEnd>
                             </button>
                         </li>
                     );
@@ -456,11 +465,14 @@ const InlineImageDiffViewer = React.memo<InlineImageDiffViewerProps>(({
                 {hasOriginal && (
                     <div className={imageContainerClass}>
                         <span className="typography-meta text-muted-foreground font-medium">{t('diffView.image.original')}</span>
-                        <img
+                        <StatusImage
                             src={diff.original}
                             alt={t('diffView.image.originalAlt', { path: filePath })}
-                            className={renderSideBySide ? "max-w-full max-h-[70vh] object-contain" : "max-w-full object-contain"}
-                            style={{ imageRendering: 'auto' }}
+                            variant="large"
+                            // Room for the loading and failed states before the image has a size.
+                            className="flex min-h-40 min-w-40 max-w-full items-center justify-center"
+                            imgClassName={renderSideBySide ? "max-w-full max-h-[70vh] object-contain" : "max-w-full object-contain"}
+                            imgStyle={{ imageRendering: 'auto' }}
                         />
                     </div>
                 )}
@@ -469,11 +481,14 @@ const InlineImageDiffViewer = React.memo<InlineImageDiffViewerProps>(({
                         <span className="typography-meta text-muted-foreground font-medium">
                             {hasOriginal ? t('diffView.image.modified') : t('diffView.image.new')}
                         </span>
-                        <img
+                        <StatusImage
                             src={diff.modified}
                             alt={t('diffView.image.modifiedAlt', { path: filePath })}
-                            className={renderSideBySide ? "max-w-full max-h-[70vh] object-contain" : "max-w-full object-contain"}
-                            style={{ imageRendering: 'auto' }}
+                            variant="large"
+                            // Room for the loading and failed states before the image has a size.
+                            className="flex min-h-40 min-w-40 max-w-full items-center justify-center"
+                            imgClassName={renderSideBySide ? "max-w-full max-h-[70vh] object-contain" : "max-w-full object-contain"}
+                            imgStyle={{ imageRendering: 'auto' }}
                         />
                     </div>
                 )}
@@ -1350,28 +1365,20 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
                     <div className="relative flex shrink-0 items-center justify-self-end gap-2">
                         {formatDiffTotals(file.insertions, file.deletions)}
                         {showOpenInEditorAction && onOpenInEditor ? (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0 opacity-70 hover:opacity-100"
-                                title={t('diffView.actions.openFileInEditorAtChange')}
+                            <ToolbarTooltipButton
+                                label={t('diffView.actions.openFileInEditorAtChange')}
+                                icon={isOpeningInEditor ? 'loader-4' : 'edit'}
+                                iconClassName={isOpeningInEditor ? 'animate-spin' : undefined}
                                 onClick={(event) => {
                                     event.stopPropagation();
                                     onOpenInEditor(file.path, diffData);
                                 }}
                                 disabled={isOpeningInEditor}
-                            >
-                                {isOpeningInEditor ? (
-                                    <Icon name="loader-4" className="size-3.5 animate-spin" />
-                                ) : (
-                                    <Icon name="edit" className="size-3.5" />
-                                )}
-                            </Button>
+                            />
                         ) : null}
                         <WholeFileCommentButton
                             onClick={wholeFileComment.toggle}
                             active={wholeFileComment.isOpen}
-                            className="opacity-70"
                         />
                         <DiffViewToggle
                             mode={renderSideBySide ? 'side-by-side' : 'unified'}
@@ -1380,7 +1387,6 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
                                     mode === 'side-by-side' ? 'side-by-side' : 'inline';
                                 setDiffFileLayout(file.path, nextLayout);
                             }}
-                            className="opacity-70"
                         />
                     </div>
                 </div>
@@ -1393,7 +1399,7 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
                 // instead of to the panel.
                 <div className="relative bg-background overflow-clip">
                     {!isMounted && !diffLoadFailure ? (
-                        <div className="h-40 border border-border/40 bg-background/40" />
+                        <div className="h-40 border border-edge-muted bg-background/40" />
                     ) : null}
                     {diffLoadFailure?.kind === 'unavailable' && diffLoadFailure.reason === 'nested_repository' ? (
                         <NestedRepositoryChanges
@@ -1551,8 +1557,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
     const foreign = Boolean(targetDirectory);
     const rootDirectory = targetDirectory ?? panelDirectory;
     const runtimeKey = useGitStore((state) => state.runtimeKey);
-    // Diffs belong to the repository being diffed: when the root is not
-    // itself a repository, operate on the resolved nested repository instead.
+    // Diffs belong to the repository being diffed: the picked one, or the
+    // root when nothing is picked.
     const { gitDirectory: nestedGitDirectory, repositoryOptions } = useNestedGitDirectory(rootDirectory ?? null, { enabled: visible, recheckOnOpen: true });
     const effectiveDirectory = nestedGitDirectory ?? rootDirectory;
     // The binding follows the repository actually being diffed.
@@ -2800,7 +2806,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
             const absolutePath = toAbsolutePath(effectiveDirectory, filePath);
             const openValidation = await validateContextFileOpen(files, absolutePath, { directory: effectiveDirectory });
             if (!openValidation.ok) {
-                toast.error(getContextFileOpenFailureMessage(openValidation.reason));
+                toastContextFileOpenFailure(absolutePath, openValidation);
                 return;
             }
 
@@ -2901,8 +2907,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
                     </>
                 )}
                 {showFileSidebar && !isTreeMode && (
-                    <section className="hidden lg:flex w-72 flex-col rounded-xl border border-border/60 bg-background/70 overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/40">
+                    <section className="hidden lg:flex w-72 flex-col rounded-xl border border-edge bg-background/70 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-1.5 border-b border-edge-muted">
                             <span className="typography-ui-header font-semibold text-foreground">{t('diffView.section.files')}</span>
                             <span className="typography-meta text-muted-foreground">{changedFiles.length}</span>
                         </div>
@@ -3138,7 +3144,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
             case 'whitespace':
                 return {
                     label: t('diffView.actions.hideWhitespace'),
-                    icon: <WhitespaceToggleIcon hidden={diffHideWhitespace} className="size-4" />,
+                    icon: <Icon name="space" className="size-4" />,
                     on: diffHideWhitespace,
                     select: () => setDiffHideWhitespace(!diffHideWhitespace),
                 };
@@ -3284,56 +3290,42 @@ export const DiffView: React.FC<DiffViewProps> = ({
                     </Button>
                 )}
                 {changedFiles.length > 0 && !isMobileLayout && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDiffFileListMode(diffFileListMode === 'tree' ? 'flat' : 'tree')}
-                        aria-pressed={diffFileListMode === 'tree'}
-                        className={cn(
-                            'diff-toolbar__tree-toggle h-5 w-5 flex-shrink-0 p-0 transition-opacity',
-                            diffFileListMode === 'tree' ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-60 hover:opacity-100'
-                        )}
-                        title={diffFileListMode === 'tree' ? t('diffView.fileTree.showAsList') : t('diffView.fileTree.showAsTree')}
-                    >
-                        <Icon name="node-tree" className="size-4" />
-                    </Button>
+                    <span className="diff-toolbar__tree-toggle flex flex-shrink-0">
+                        <ToolbarTooltipButton
+                            label={t('diffView.fileTree.showAsTree')}
+                            icon="node-tree"
+                            pressed={diffFileListMode === 'tree'}
+                            onClick={() => setDiffFileListMode(diffFileListMode === 'tree' ? 'flat' : 'tree')}
+                        />
+                    </span>
                 )}
                 {changedFiles.length > 0 && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDiffWrapLines(!diffWrapLinesStore)}
-                        className={cn(
-                            'diff-toolbar__wrap-toggle h-5 w-5 flex-shrink-0 p-0 transition-opacity',
-                            diffWrapLines ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-60 hover:opacity-100'
-                        )}
-                        title={diffWrapLines ? t('diffView.actions.disableLineWrap') : t('diffView.actions.enableLineWrap')}
-                    >
-                        <Icon name="text-wrap" className="size-4" />
-                    </Button>
+                    <span className="diff-toolbar__wrap-toggle flex flex-shrink-0">
+                        <ToolbarTooltipButton
+                            label={t('diffView.actions.wrapLines')}
+                            icon="text-wrap"
+                            pressed={diffWrapLines}
+                            onClick={() => setDiffWrapLines(!diffWrapLinesStore)}
+                        />
+                    </span>
                 )}
                 {changedFiles.length > 0 && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDiffHideWhitespace(!diffHideWhitespace)}
-                        aria-pressed={diffHideWhitespace}
-                        className={cn(
-                            'diff-toolbar__whitespace-toggle h-5 w-5 flex-shrink-0 p-0 transition-opacity',
-                            diffHideWhitespace ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-60 hover:opacity-100'
-                        )}
-                        title={diffHideWhitespace ? t('diffView.whitespace.hidden') : t('diffView.whitespace.shown')}
-                        aria-label={t('diffView.actions.hideWhitespace')}
-                    >
-                        <WhitespaceToggleIcon hidden={diffHideWhitespace} className="size-4" />
-                    </Button>
+                    <span className="diff-toolbar__whitespace-toggle flex flex-shrink-0">
+                        <ToolbarTooltipButton
+                            label={t('diffView.actions.hideWhitespace')}
+                            icon="space"
+                            pressed={diffHideWhitespace}
+                            onClick={() => setDiffHideWhitespace(!diffHideWhitespace)}
+                        />
+                    </span>
                 )}
                 {currentLayoutForAllFiles && (
-                    <DiffViewToggle
-                        mode={currentLayoutForAllFiles === 'side-by-side' ? 'side-by-side' : 'unified'}
-                        onModeChange={handleHeaderLayoutChange}
-                        className="diff-toolbar__layout-toggle flex-shrink-0"
-                    />
+                    <span className="diff-toolbar__layout-toggle flex flex-shrink-0">
+                        <DiffViewToggle
+                            mode={currentLayoutForAllFiles === 'side-by-side' ? 'side-by-side' : 'unified'}
+                            onModeChange={handleHeaderLayoutChange}
+                        />
+                    </span>
                 )}
                 {changedFiles.length > 0 && (
                     <DropdownMenu onOpenChange={handleToolbarMenuOpenChange}>
@@ -3341,14 +3333,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                             <TooltipTrigger asChild>
                                 <span className="diff-toolbar__more flex-shrink-0">
                                     <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="size-6 p-0 text-foreground hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-                                            aria-label={t('diffView.actions.moreActions')}
-                                        >
-                                            <Icon name="more" className="size-4" />
-                                        </Button>
+                                        <ToolbarButton label={t('diffView.actions.moreActions')} icon="more" />
                                     </DropdownMenuTrigger>
                                 </span>
                             </TooltipTrigger>

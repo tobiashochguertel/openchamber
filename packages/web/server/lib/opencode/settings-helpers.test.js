@@ -121,6 +121,7 @@ describe('settings helpers', () => {
     expect(helpers.formatSettingsResponse(next).workStatusHiddenSectionsExplicit).toBe(true);
     expect(helpers.sanitizeSettingsUpdate({ workStatusHiddenSectionsExplicit: 'true' }).workStatusHiddenSectionsExplicit).toBeUndefined();
   });
+  // Packing runs the real prepack build and compression beside the full suite.
   it('imports from the packed @openchamber/web tarball without escaping the published package', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'settings-helpers-pack-'));
     const packDir = join(tempRoot, 'pack');
@@ -188,7 +189,7 @@ describe('settings helpers', () => {
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
-  });
+  }, 120_000);
 
   it('accepts only booleans for draft starter visibility', () => {
     const helpers = createTestHelpers();
@@ -591,6 +592,18 @@ describe('settings helpers', () => {
     });
   });
 
+  it('round-trips project import completion and rejects malformed markers', () => {
+    const helpers = createTestHelpers();
+    for (const value of [true, false]) {
+      const settings = helpers.sanitizeSettingsUpdate({ openCodeProjectImportCompleted: value });
+      expect(settings).toEqual({ openCodeProjectImportCompleted: value });
+      expect(helpers.formatSettingsResponse(settings).openCodeProjectImportCompleted).toBe(value);
+    }
+    for (const value of ['true', 1, null, {}]) {
+      expect(helpers.sanitizeSettingsUpdate({ openCodeProjectImportCompleted: value })).toEqual({});
+    }
+  });
+
   it('rejects non-boolean collapsibleThinkingBlocks values', () => {
     const helpers = createTestHelpers();
 
@@ -695,6 +708,29 @@ describe('settings helpers', () => {
       });
     });
 
+    it('round-trips lastUsedEfforts with a named level and an explicit Default', () => {
+      const helpers = createTestHelpersWithRealSanitizers();
+      const input = {
+        'anthropic/claude-opus-4': 'high',
+        'openai/gpt-5': null,
+      };
+
+      expect(helpers.sanitizeSettingsUpdate({ lastUsedEfforts: input })).toEqual({
+        lastUsedEfforts: input,
+      });
+    });
+
+    it('rejects garbage lastUsedEfforts input', () => {
+      const helpers = createTestHelpersWithRealSanitizers();
+
+      expect(helpers.sanitizeSettingsUpdate({ lastUsedEfforts: 'not-an-object' })).toEqual({});
+      expect(helpers.sanitizeSettingsUpdate({ lastUsedEfforts: [] })).toEqual({});
+      expect(helpers.sanitizeSettingsUpdate({ lastUsedEfforts: null })).toEqual({});
+      expect(helpers.sanitizeSettingsUpdate({ lastUsedEfforts: { 'anthropic/claude-opus-4': 42 } })).toEqual({});
+      expect(helpers.sanitizeSettingsUpdate({ lastUsedEfforts: { '': 'high' } })).toEqual({});
+      expect(helpers.sanitizeSettingsUpdate({ lastUsedEfforts: { 'anthropic/claude-opus-4': '' } })).toEqual({});
+    });
+
     it('rejects garbage hiddenModels input the same way sanitizeModelRefs rejects bad refs', () => {
       const helpers = createTestHelpersWithRealSanitizers();
 
@@ -755,6 +791,10 @@ describe('settings helpers', () => {
           'anthropic/claude-opus-4': ['high', 'default'],
           'openai/gpt-5': ['low'],
         },
+        lastUsedEfforts: {
+          'anthropic/claude-opus-4': 'high',
+          'openai/gpt-5': null,
+        },
         favoriteModels: [{ providerID: 'anthropic', modelID: 'claude-haiku-4' }],
         recentModels: [{ providerID: 'openai', modelID: 'gpt-5' }],
       };
@@ -765,6 +805,7 @@ describe('settings helpers', () => {
       expect(sanitized.collapsedModelProviders).toEqual(payload.collapsedModelProviders);
       expect(sanitized.recentAgents).toEqual(payload.recentAgents);
       expect(sanitized.recentEfforts).toEqual(payload.recentEfforts);
+      expect(sanitized.lastUsedEfforts).toEqual(payload.lastUsedEfforts);
       expect(sanitized.favoriteModels).toEqual(payload.favoriteModels);
       expect(sanitized.recentModels).toEqual(payload.recentModels);
     });
@@ -828,6 +869,7 @@ describe('settings registry gate', () => {
   // stops accepting a key the registry still lists — that is the drift the
   // registry exists to end.
   const validValues = {
+    openCodeProjectImportCompleted: true,
     themeId: 'openchamber-dark', locale: 'zh-CN', useSystemTheme: true, themeVariant: 'dark', lightThemeId: 'openchamber-light', darkThemeId: 'openchamber-dark',
     splashBgLight: '#fff', splashFgLight: '#000', splashBgDark: '#000', splashFgDark: '#fff',
     lastDirectory: '/home/testuser/project', homeDirectory: '/home/testuser', opencodeBinary: '/usr/local/bin/opencode',
@@ -836,9 +878,9 @@ describe('settings registry gate', () => {
     desktopLanAccessEnabled: true, desktopKeepAwakeEnabled: true, desktopMinimizeToTrayEnabled: true, desktopMacMenuBarEnabled: true, desktopLinuxNativeFrame: true, sidebarShowChatsSection: false, sidebarShowWorkSection: false, sidebarShowPinnedSection: true, sidebarDetailedZoneRows: true, sidebarWorktreeNameByBranch: true,
     desktopUiPassword: 'secret', githubClientId: 'client', githubScopes: 'repo', gitlabClientId: 'gitlab-client', skillCatalogs: [{ id: 'c', label: 'C', source: 'https://x' }],
     defaultGitIdentityId: 'global', permissionAutoAccept: { sessions: { s: true }, revision: 1 }, permissionDefaultMode: 'safety', messageSearchEnabled: true, messageSearchReasoningEnabled: true,
-    agentControlToolEnabled: true, agentScheduleToolEnabled: true, agentWebToolEnabled: true, browserProvider: 'builtin', agentMemoryToolEnabled: true, agentKnowledgeToolEnabled: true, agentNotifyToolEnabled: true, agentRenderToolEnabled: true, agentImageToolEnabled: true, agentImageModel: 'openrouter/openai/gpt-image-2', agentWorkflowToolEnabled: true, agentToolsCodeMode: true, isolatedSpacesEnabled: true, isolatedSpacesIdleStop: { enabled: true, hours: 4 }, isolatedSpacesSshHost: 'me@box.local:2222', openCodeUpdateToastDismissedVersion: '1.0.0',
+    agentControlToolEnabled: true, agentScheduleToolEnabled: true, agentWebToolEnabled: true, browserProvider: 'builtin', agentMemoryToolEnabled: true, agentKnowledgeToolEnabled: true, agentNotifyToolEnabled: true, agentRenderToolEnabled: true, agentImageToolEnabled: true, agentSecretToolEnabled: true, agentImageModel: 'openrouter/openai/gpt-image-2', agentWorkflowToolEnabled: true, agentToolsCodeMode: true, isolatedSpacesEnabled: true, isolatedSpacesIdleStop: { enabled: true, hours: 4 }, isolatedSpacesSshHost: 'me@box.local:2222', openCodeUpdateToastDismissedVersion: '1.0.0',
     autoDeleteEnabled: true, autoDeleteAfterDays: 30, sessionRetentionOnlyArchived: false, sessionRetentionAction: 'archive', mergedWorktreeCleanupEnabled: true, worktreeArchiveOnDoneEnabled: true, terminalShell: 'zsh', terminalLoginShells: ['zsh'], terminalCloseOnExit: false,
-    openInAppId: 'vscode', dictationEnabled: true, sttProvider: 'local', sttServerUrl: 'http://localhost:8001/v1', sttModel: 'm', sttLocalModel: 'm', sttLanguage: 'en', sttCorrectTranscript: true,
+    openInAppId: 'vscode', dictationEnabled: true, dictationAutoSend: true, sttProvider: 'local', sttServerUrl: 'http://localhost:8001/v1', sttEndpointPath: '/speech_to_text', sttModel: 'm', sttLocalModel: 'm', sttLanguage: 'en', sttCorrectTranscript: true,
     tunnelProvider: 'cloudflare', tunnelMode: 'quick', tunnelHttpsPort: 8443, tunnelBootstrapTtlMs: 600000, tunnelSessionTtlMs: 86400000, managedLocalTunnelConfigPath: '/tmp/x',
     managedRemoteTunnelHostname: 'x.example', managedRemoteTunnelToken: 'token', managedRemoteTunnelPresets: [{ id: 'a', name: 'A', hostname: 'a.example' }],
     managedRemoteTunnelSelectedPresetId: 'a', managedRemoteTunnelPresetTokens: { a: 'token' },
@@ -859,7 +901,7 @@ describe('settings registry gate', () => {
     defaultModel: 'anthropic/claude', defaultVariant: 'high', defaultAgent: 'build', smallModelUseDefault: false, smallModelOverride: 'anthropic/haiku', smallModelVariant: 'high',
     walkthroughModelOverride: 'anthropic/claude', walkthroughModelVariant: 'high', zenModel: 'zen/model', fallbackModel: 'openai/gpt', fallbackVariant: 'high', accountSwitchProviders: ['anthropic'],
     favoriteModels: [{ providerID: 'anthropic', modelID: 'claude' }], hiddenModels: [{ providerID: 'openai', modelID: 'gpt' }], collapsedModelProviders: ['openai'],
-    recentModels: [{ providerID: 'anthropic', modelID: 'claude' }], lastSelectedModel: 'anthropic/claude', recentAgents: ['build'], favoriteAgents: ['build'], recentEfforts: { 'anthropic/claude': ['high'] }, providerOrder: ['anthropic'],
+    recentModels: [{ providerID: 'anthropic', modelID: 'claude' }], lastSelectedModel: 'anthropic/claude', recentAgents: ['build'], favoriteAgents: ['build'], recentEfforts: { 'anthropic/claude': ['high'] }, lastUsedEfforts: { 'anthropic/claude': 'high', 'openai/gpt-5': null }, providerOrder: ['anthropic'],
     sessionRecapEnabled: true, sessionSuggestionEnabled: true, sessionWorkEnabled: true, sessionReviewOfferEnabled: true, sessionGoalEnabled: true, sessionGoalChecker: 'small-model', sessionGoalMaxAutoTurns: 50, sessionGoalDefaultBudgetEnabled: true, sessionGoalDefaultBudget: 5,
     summarizeLastMessage: true, summaryThreshold: 100, summaryLength: 50, maxLastMessageLength: 200, showDeletionDialog: true,
     nativeNotificationsEnabled: true, notificationMode: 'always', notifyOnSubtasks: true, notifyOnCompletion: true, notifyOnError: true, notifyOnQuestion: true,

@@ -1,4 +1,7 @@
 import React from 'react';
+import { TooltipLabelWithShortcut } from '@/components/ui/action-toolbar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatShortcutForDisplay, getEffectiveShortcutCombo } from '@/lib/shortcuts';
 
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { DiffViewIcon } from '@/components/icons/DiffIcon';
@@ -49,6 +52,7 @@ import { useChangeRequestTerm } from '@/lib/source-control/providers/registry';
 import { ContextPanelHeaderSlotProvider } from './contextPanelHeaderSlot';
 import { CLOSED_ZONE_VIEW, CONTEXT_ZONE_DEFAULT_WIDTH, getZoneView, isZoneShown, resolveZoneActiveTab, sideZoneWidth, type ContextZone } from '@/lib/workspace/zones';
 import { closeZoneOnEscape } from './zoneEscape';
+import { registerCloseTabTarget } from '@/lib/closeTabTarget';
 import { ZoneMoveMenuItems } from './ZoneMoveMenuItems';
 import { beginZoneDrag, cancelZoneDrag, finishZoneDrag, startZoneDragGesture, updateZoneDrag } from './zoneDrag';
 import { setZoneBody, setZoneHeaderSlot } from './zoneHosts';
@@ -418,6 +422,7 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
 
   const panelState = useUIStore((state) => (directoryKey ? state.contextPanelByDirectory[directoryKey] : undefined));
   const placement = useUIStore((state) => state.contextSurfaceZones);
+  const shortcutOverrides = useUIStore((state) => state.shortcutOverrides);
   const closeContextZone = useUIStore((state) => state.closeContextZone);
   const closeContextPanelTab = useUIStore((state) => state.closeContextPanelTab);
   const pinContextPanelTab = useUIStore((state) => state.pinContextPanelTab);
@@ -843,6 +848,19 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
 
   const isFileTabActive = activeTab?.mode === 'file';
 
+  // Cmd/Ctrl+W in the desktop app closes the strip's active tab here, as its
+  // close button does. A file shown in the editor registers from the editor,
+  // which asks first about unsaved edits; terminal tabs from the terminal's
+  // own strip.
+  const editorClosesTab = isFileTabActive && Boolean(activeTab?.targetPath) && showsEditor;
+  const shortcutClosableTabId = isOpen && activeTab && isMultiInstanceMode && !editorClosesTab && !isTrackerBranchTab(activeTab)
+    ? activeTab.id
+    : null;
+  React.useEffect(() => {
+    if (!directoryKey || !shortcutClosableTabId) return;
+    return registerCloseTabTarget(() => closeContextPanelTab(directoryKey, shortcutClosableTabId), panelRef);
+  }, [closeContextPanelTab, directoryKey, shortcutClosableTabId]);
+
   const closeContextPanelTabs = useUIStore((state) => state.closeContextPanelTabs);
   const renderTabContextMenu = React.useCallback(
     (args: { id: string; index: number; allIds: string[]; close: () => void }): React.ReactNode => {
@@ -1038,17 +1056,21 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
           );
         }) : null}
         {!isTreeOnly ? (
+          <Tooltip>
+          <TooltipTrigger asChild>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={handleToggleExpanded}
             className="h-7 w-7 p-0"
-            title={isExpanded ? t('contextPanel.actions.collapsePanel') : t('contextPanel.actions.expandPanel')}
             aria-label={isExpanded ? t('contextPanel.actions.collapsePanel') : t('contextPanel.actions.expandPanel')}
           >
             {isExpanded ? <Icon name="fullscreen-exit" className="h-3.5 w-3.5" /> : <Icon name="fullscreen" className="h-3.5 w-3.5" />}
           </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}><TooltipLabelWithShortcut label={isExpanded ? t('contextPanel.actions.collapsePanel') : t('contextPanel.actions.expandPanel')} shortcut={activeTab?.mode === 'terminal' ? formatShortcutForDisplay(getEffectiveShortcutCombo('toggle_terminal_expanded', shortcutOverrides), '') : undefined} /></TooltipContent>
+          </Tooltip>
         ) : null}
         <Button
           type="button"

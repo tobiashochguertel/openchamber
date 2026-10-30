@@ -479,7 +479,7 @@ export function DesktopHostSwitcherDialog({
     const sshForwarded = host.sshForwarded === true || (
       sshStatusesById[host.id]?.phase === 'ready' && sshStatusesById[host.id]?.localUrl === apiOrigin
     );
-    const relayOnly = Boolean(host.relay) && !host.apiUrl && host.id !== LOCAL_HOST_ID;
+    const relayOnly = Boolean(host.relay) && !origin && host.id !== LOCAL_HOST_ID;
     if (!origin && !relayOnly) {
       setSwitchingHostId(null);
       return;
@@ -546,7 +546,11 @@ export function DesktopHostSwitcherDialog({
       let finalStatus: HostStatus = { status: 'unreachable', latencyMs: 0 };
       let transport: 'direct' | 'relay' | null = null;
       if (apiOrigin) {
-        const probe = await desktopHostProbe(apiOrigin, { clientToken: clientToken || null, requestHeaders: host.requestHeaders || null }).catch((): HostProbeResult => ({ status: 'unreachable', latencyMs: 0 }));
+        const probe = await desktopHostProbe(apiOrigin, {
+          clientToken: clientToken || null,
+          requestHeaders: host.requestHeaders || null,
+          expectedServerId: host.relay?.serverId ?? null,
+        }).catch((): HostProbeResult => ({ status: 'unreachable', latencyMs: 0 }));
         finalStatus = { status: probe.status, latencyMs: probe.latencyMs };
         if (!isBlockedHostStatus(probe.status)) transport = 'direct';
       }
@@ -920,7 +924,7 @@ export function DesktopHostSwitcherDialog({
       )}
 
         {!desktopAvailable && (
-          <div className="flex-shrink-0 rounded-lg border border-border/50 bg-muted/20 p-3">
+          <div className="flex-shrink-0 rounded-lg border border-edge bg-muted/20 p-3">
             <div className="typography-meta text-muted-foreground">
               {t('desktopHostSwitcher.state.limitedOnPage')}
             </div>
@@ -992,7 +996,7 @@ export function DesktopHostSwitcherDialog({
                             {displayLabel}
                           </span>
                           {isActive && (
-                            <span className="typography-micro flex-shrink-0 text-muted-foreground bg-muted px-1 rounded leading-none pb-px border border-border/50">
+                            <span className="typography-micro flex-shrink-0 text-muted-foreground bg-muted px-1 rounded leading-none pb-px border border-edge">
                               {t('desktopHostSwitcher.header.current')}
                             </span>
                           )}
@@ -1097,7 +1101,7 @@ export function DesktopHostSwitcherDialog({
         </div>
 
         {desktopAvailable && editingId && editingId !== LOCAL_HOST_ID && (
-          <div className="flex-shrink-0 rounded-lg border border-border/50 bg-muted/20 p-3">
+          <div className="flex-shrink-0 rounded-lg border border-edge bg-muted/20 p-3">
             <div className="flex items-center justify-between gap-2">
               <div className="typography-ui-label font-medium text-foreground">{t('desktopHostSwitcher.edit.title')}</div>
               <div className="flex items-center gap-2">
